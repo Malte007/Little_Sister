@@ -28,6 +28,9 @@ public sealed class Camera
     /// <summary>Daueraufnahme an/aus; ereignisgesteuerte Aufnahme folgt später.</summary>
     public bool RecordingEnabled { get; set; } = true;
 
+    /// <summary>Drehung des Bildes im Uhrzeigersinn (0, 90, 180, 270); wird nur angezeigt, nie umgerechnet.</summary>
+    public int Rotation { get; set; }
+
     /// <summary>Speicherkontingent dieser Kamera in GB.</summary>
     public double QuotaGb { get; set; } = 200;
 

@@ -37,7 +37,8 @@ internal static class CameraEndpoints
         string? Model,
         bool RecordingEnabled,
         double QuotaGb,
-        int? MaxRetentionDays);
+        int? MaxRetentionDays,
+        int Rotation = 0);
 
     internal sealed record StorageUsage(long UsedBytes, int SegmentCount, DateTimeOffset? OldestUtc, DateTimeOffset? NewestUtc, double? EstimatedDays);
 
@@ -50,7 +51,7 @@ internal static class CameraEndpoints
     internal sealed record CameraDto(
         Guid Id, string Name, string MainStreamUrl, string? SubStreamUrl, string? Username, bool HasPassword,
         string? OnvifAddress, string? Manufacturer, string? Model, bool RecordingEnabled, double QuotaGb, int? MaxRetentionDays,
-        CameraStatusDto Status, StorageUsage Storage);
+        int Rotation, CameraStatusDto Status, StorageUsage Storage);
 
     internal sealed record TestStreamRequest(string Url, string? Username, string? Password, Guid? CameraId);
 
@@ -176,7 +177,7 @@ internal static class CameraEndpoints
             Username = string.IsNullOrWhiteSpace(r.Username) ? user : r.Username.Trim(),
             Password = r.Password ?? password,
         };
-        return (normalized, CameraValidator.Validate(normalized.Name, main, sub, r.QuotaGb, r.MaxRetentionDays));
+        return (normalized, CameraValidator.Validate(normalized.Name, main, sub, r.QuotaGb, r.MaxRetentionDays, r.Rotation));
     }
 
     private static void Apply(Camera camera, CameraRequest r, CameraCredentialProtector credentials, bool keepPasswordIfNull)
@@ -193,6 +194,7 @@ internal static class CameraEndpoints
         camera.RecordingEnabled = r.RecordingEnabled;
         camera.QuotaGb = r.QuotaGb;
         camera.MaxRetentionDays = r.MaxRetentionDays;
+        camera.Rotation = r.Rotation;
     }
 
     private static CameraDto ToDto(Camera c, CameraStatusRegistry statuses, StorageUsage? usage)
@@ -200,7 +202,7 @@ internal static class CameraEndpoints
         var s = statuses.Get(c.Id);
         return new CameraDto(
             c.Id, c.Name, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword is not null,
-            c.OnvifAddress, c.Manufacturer, c.Model, c.RecordingEnabled, c.QuotaGb, c.MaxRetentionDays,
+            c.OnvifAddress, c.Manufacturer, c.Model, c.RecordingEnabled, c.QuotaGb, c.MaxRetentionDays, c.Rotation,
             CameraStatusDto.From(c.RecordingEnabled ? s : s with { State = CameraState.Idle }),
             usage is null ? new StorageUsage(0, 0, null, null, null) : usage with
             {

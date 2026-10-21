@@ -10,7 +10,7 @@
 </script>
 
 <a class="tile card" href="/live/{camera.id}">
-	<LiveVideo cameraId={camera.id} onlyWhenVisible />
+	<LiveVideo cameraId={camera.id} rotation={camera.rotation} onlyWhenVisible />
 	<div class="caption">
 		<strong>{camera.name}</strong>
 		<StatusPill state={camera.recordingEnabled ? status.state : 'Idle'} />

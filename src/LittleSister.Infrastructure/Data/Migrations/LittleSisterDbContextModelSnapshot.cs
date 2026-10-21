@@ -60,6 +60,9 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.Property<bool>("RecordingEnabled")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("Rotation")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("SubStreamUrl")
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");

@@ -104,7 +104,8 @@
 		"streamUnreachable": "Der Stream ist nicht erreichbar.",
 		"streamTimeout": "Die Kamera antwortet nicht rechtzeitig.",
 		"noVideo": "Der Stream enthält kein Video.",
-		"ffprobeMissing": "ffprobe ist auf dem Server nicht installiert."
+		"ffprobeMissing": "ffprobe ist auf dem Server nicht installiert.",
+		"invalidRotation": "Bitte 0, 90, 180 oder 270 Grad wählen."
 	},
 	"status": {
 		"Idle": "Aus",
@@ -166,7 +167,10 @@
 		"deleteRecordings": "Auch alle Aufnahmen dieser Kamera löschen?",
 		"back": "Zurück zur Auswahl",
 		"mainShort": "Hauptstream",
-		"subShort": "Substream"
+		"subShort": "Substream",
+		"rotation": "Bild drehen",
+		"rotationNone": "nicht gedreht",
+		"rotationHint": "Im Uhrzeigersinn. Dreht nur die Anzeige, ohne Rechenaufwand; Aufnahmen werden beim Abspielen gedreht."
 	},
 	"storage": {
 		"title": "Speicher",

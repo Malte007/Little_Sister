@@ -70,7 +70,7 @@ public sealed class CameraRecorder(
         };
         // Dateinamen per strftime immer in UTC, unabhängig von der Zeitzone des Servers
         psi.Environment["TZ"] = "UTC";
-        foreach (var arg in BuildArguments(input.CreateInputArguments(camera), incoming, options.SegmentSeconds))
+        foreach (var arg in BuildArguments(input.CreateInputArguments(camera), incoming, options.SegmentSeconds, camera.Rotation))
             psi.ArgumentList.Add(arg);
 
         using var process = new Process { StartInfo = psi };
@@ -155,10 +155,13 @@ public sealed class CameraRecorder(
         return new RunResult(process.ExitCode, lastError, segments);
     }
 
-    /// <summary>ffmpeg-Aufruf: Video kopieren (keine CPU-Last), Ton nach AAC, damit auch G.711-Kameras in MP4 passen.</summary>
-    internal static IReadOnlyList<string> BuildArguments(IReadOnlyList<string> inputArguments, string incomingDirectory, int segmentSeconds) =>
+    /// <summary>ffmpeg-Aufruf: Video kopieren (keine CPU-Last), Ton nach AAC, damit auch G.711-Kameras in MP4 passen.
+    /// Eine Drehung wird nur als Markierung in die Datei geschrieben; Player drehen beim Abspielen.</summary>
+    internal static IReadOnlyList<string> BuildArguments(IReadOnlyList<string> inputArguments, string incomingDirectory, int segmentSeconds, int rotation = 0) =>
     [
         "-hide_banner", "-loglevel", "warning",
+        // ffmpeg zählt gegen den Uhrzeigersinn, Little Sister im Uhrzeigersinn
+        .. rotation == 0 ? Array.Empty<string>() : ["-display_rotation:v:0", (-rotation).ToString(CultureInfo.InvariantCulture)],
         .. inputArguments,
         "-map", "0:v:0", "-map", "0:a:0?",
         "-c:v", "copy", "-c:a", "aac", "-b:a", "64k",

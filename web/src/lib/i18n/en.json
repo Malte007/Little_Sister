@@ -104,7 +104,8 @@
 		"streamUnreachable": "The stream cannot be reached.",
 		"streamTimeout": "The camera does not answer in time.",
 		"noVideo": "The stream contains no video.",
-		"ffprobeMissing": "ffprobe is not installed on the server."
+		"ffprobeMissing": "ffprobe is not installed on the server.",
+		"invalidRotation": "Please choose 0, 90, 180 or 270 degrees."
 	},
 	"status": {
 		"Idle": "Off",
@@ -166,7 +167,10 @@
 		"deleteRecordings": "Also delete all recordings of this camera?",
 		"back": "Back to selection",
 		"mainShort": "Main stream",
-		"subShort": "Substream"
+		"subShort": "Substream",
+		"rotation": "Rotate image",
+		"rotationNone": "not rotated",
+		"rotationHint": "Clockwise. Only rotates the display, at no processing cost; recordings are rotated during playback."
 	},
 	"storage": {
 		"title": "Storage",

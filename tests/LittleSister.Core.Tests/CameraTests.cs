@@ -16,8 +16,8 @@ public class CameraTests
     [Fact]
     public void Validate_FehlendeFelder()
     {
-        var errors = CameraValidator.Validate("", "http://x", "kaputt", 0, 0);
-        Assert.Equal(["name", "mainStreamUrl", "subStreamUrl", "quotaGb", "maxRetentionDays"], errors.Keys);
+        var errors = CameraValidator.Validate("", "http://x", "kaputt", 0, 0, 45);
+        Assert.Equal(["name", "mainStreamUrl", "subStreamUrl", "quotaGb", "maxRetentionDays", "rotation"], errors.Keys);
     }
 
     [Fact]

@@ -31,6 +31,16 @@ public class RecordingTests
         Assert.Equal(Path.Combine("/rec/.incoming", SegmentFiles.IncomingPattern), args[^1]);
     }
 
+    [Fact]
+    public void FfmpegArgumente_DrehungNurAlsMarkierungVorDerEingabe()
+    {
+        var args = CameraRecorder.BuildArguments(["-i", "rtsp://cam/stream"], "/rec/.incoming", 60, rotation: 90);
+        var joined = string.Join(' ', args);
+        Assert.Contains("-display_rotation:v:0 -90 -i rtsp://cam/stream", joined);
+        Assert.Contains("-c:v copy", joined);
+        Assert.DoesNotContain("-display_rotation", string.Join(' ', CameraRecorder.BuildArguments(["-i", "x"], "/r", 60)));
+    }
+
     [Theory]
     [InlineData("method DESCRIBE failed: 401 Unauthorized", "streamUnauthorized")]
     [InlineData("method DESCRIBE failed: 404 Not Found", "streamNotFound")]
