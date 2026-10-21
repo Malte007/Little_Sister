@@ -145,7 +145,7 @@ npm run dev
 | Zeile | Wirkung |
 | --- | --- |
 | `cd web` | wechselt in den Frontend-Ordner |
-| `npm install` | installiert die Frontend-Pakete (nur beim ersten Mal oder nach Änderungen an `package.json`) |
+| `npm install` | installiert die Frontend-Pakete; beim ersten Mal und nach jedem `git pull`, der `package.json` ändert, sonst meldet Vite „Failed to resolve import“ |
 | `npm run dev` | startet die Oberfläche auf http://localhost:5173 und leitet `/api` an die laufende API weiter |
 
 5. http://localhost:5173 im Browser öffnen und die Einrichtung durchlaufen. Als Aufnahmeordner einen beschreibbaren absoluten Pfad angeben, z. B. `/home/<du>/little-sister/recordings`. Admins können ihn später unter **Kameras → Speicher** ändern.
