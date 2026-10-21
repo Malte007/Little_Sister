@@ -166,12 +166,10 @@
 	</div>
 
 	<label class="toggle">
-		<input type="checkbox" role="switch" bind:checked={form.recordingEnabled} />
+		<input type="checkbox" bind:checked={form.recordingEnabled} />
 		<span>
 			<strong>{t('cameras.recording')}</strong>
-			<span class="muted small"
-				>{form.recordingEnabled ? t('cameras.recordingHint') : t('cameras.recordingOffHint')}</span
-			>
+			<span class="muted small">{t('cameras.recordingHint')}</span>
 		</span>
 	</label>
 
@@ -236,7 +234,7 @@
 		cursor: pointer;
 	}
 	.toggle input {
-		margin-top: 0.1rem;
+		margin-top: 0.25rem;
 	}
 	.toggle span {
 		display: flex;
