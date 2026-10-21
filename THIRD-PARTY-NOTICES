@@ -94,9 +94,26 @@ ffmpeg
 Weitere Pakete des Basis-Images (Linux-Distribution) unterliegen ihren
 jeweiligen Lizenzen; diese liegen im Image unter /usr/share/doc/*/copyright.
 
-go2rtc
-  Noch nicht enthalten. Wird mit der Live-Ansicht ergänzt:
-  Lizenz MIT, Copyright (c) Alexey Khit, https://github.com/AlexxIT/go2rtc
+go2rtc 1.9.14
+  Wird als eigener Prozess von Little Sister gestartet (Live-Ansicht).
+  Lizenz: MIT (Volltext in Abschnitt A)
+  Copyright (c) 2022 Alexey Khit
+  Quelle: https://github.com/AlexxIT/go2rtc
+
+  Im go2rtc-Programm sind folgende Go-Module statisch enthalten (Lizenzen
+  laut Angaben der jeweiligen Projekte):
+    MIT:          pion/* (webrtc, ice, dtls, srtp, rtp, rtcp, sdp, stun,
+                  interceptor), asticode/go-astits, expr-lang/expr,
+                  mattn/go-isatty, rs/zerolog, sigurn/crc8, sigurn/crc16
+    BSD-3-Clause: golang.org/x/crypto, golang.org/x/net, google/uuid,
+                  miekg/dns
+    BSD-2-Clause: gorilla/websocket
+    MIT/Apache-2.0: gopkg.in/yaml.v3
+    Apache-2.0:   tadglines/go-pkgs
+    EPL-2.0 oder EDL-1.0 (BSD-3-Clause), genutzt unter EDL-1.0:
+                  eclipse/paho.mqtt.golang
+  Die Lizenztexte stehen in den Quell-Repositories der Module, siehe
+  https://github.com/AlexxIT/go2rtc/blob/v1.9.14/go.mod
 
 ==============================================================================
 A. MIT License
