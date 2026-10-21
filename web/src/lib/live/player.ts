@@ -5,11 +5,8 @@ import { VideoRTC } from './video-rtc.js';
 export type PlayerState = 'connecting' | 'playing' | 'error';
 
 class LiveVideoElement extends VideoRTC {
-	constructor() {
-		super();
-		// Keine fremden STUN-Server: im LAN reichen die lokalen Adressen
-		this.pcConfig = { ...this.pcConfig, iceServers: [] };
-	}
+	// STUN-Server bleiben wie bei go2rtc voreingestellt: Browser mit strenger WebRTC-Richtlinie
+	// (z. B. Brave) liefern ohne sie keine eigenen Adressen, und WebRTC kommt nicht zustande.
 
 	oninit() {
 		super.oninit();
