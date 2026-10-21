@@ -20,6 +20,10 @@ public sealed class Segment
 
     public long SizeBytes { get; set; }
 
+    /// <summary>Länge des Dateikopfs (ftyp + moov) in Bytes; die HLS-Wiedergabe lädt ihn getrennt
+    /// von den Videodaten. 0 = noch nicht ermittelt (z. B. bei Segmenten aus älteren Versionen).</summary>
+    public int InitBytes { get; set; }
+
     /// <summary>Geschützte Segmente (z. B. wichtige Ereignisse) löscht der Ringspeicher nie.</summary>
     public bool IsProtected { get; set; }
 

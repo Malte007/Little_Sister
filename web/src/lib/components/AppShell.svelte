@@ -30,6 +30,9 @@
 	<a href="/" class="brand"><Logo /></a>
 	<nav>
 		<a href="/" class:active={page.url.pathname === '/'}>{t('nav.overview')}</a>
+		<a href="/recordings" class:active={page.url.pathname.startsWith('/recordings')}
+			>{t('nav.recordings')}</a
+		>
 		<a href="/cameras" class:active={page.url.pathname.startsWith('/cameras')}>{t('nav.cameras')}</a
 		>
 		{#if isAdmin}

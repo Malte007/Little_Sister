@@ -16,7 +16,8 @@
 	"nav": {
 		"overview": "Übersicht",
 		"users": "Benutzer",
-		"cameras": "Kameras"
+		"cameras": "Kameras",
+		"recordings": "Aufnahmen"
 	},
 	"roles": {
 		"Admin": "Administrator",
@@ -105,7 +106,11 @@
 		"streamTimeout": "Die Kamera antwortet nicht rechtzeitig.",
 		"noVideo": "Der Stream enthält kein Video.",
 		"ffprobeMissing": "ffprobe ist auf dem Server nicht installiert.",
-		"invalidRotation": "Bitte 0, 90, 180 oder 270 Grad wählen."
+		"invalidRotation": "Bitte 0, 90, 180 oder 270 Grad wählen.",
+		"endBeforeStart": "Das Ende muss nach dem Anfang liegen.",
+		"exportTooLong": "Höchstens 24 Stunden am Stück.",
+		"noRecordings": "In diesem Zeitraum gibt es keine Aufnahmen.",
+		"exportFailed": "Der Export ist fehlgeschlagen."
 	},
 	"status": {
 		"Idle": "Aus",
@@ -196,5 +201,35 @@
 		"codecUnsupported": "Dieser Browser kann {codec} nicht abspielen.",
 		"fullscreen": "Vollbild",
 		"fullscreenHint": "Doppelklick für Vollbild"
+	},
+	"playback": {
+		"title": "Aufnahmen",
+		"camera": "Kamera",
+		"date": "Tag",
+		"previousDay": "Vorheriger Tag mit Aufnahmen",
+		"nextDay": "Nächster Tag mit Aufnahmen",
+		"toLive": "Live-Ansicht",
+		"noRecordings": "An diesem Tag gibt es keine Aufnahmen.",
+		"noCameras": "Noch keine Kameras eingerichtet.",
+		"failed": "Die Aufnahme lässt sich in diesem Browser nicht abspielen.",
+		"play": "Abspielen",
+		"pause": "Pause",
+		"speed": "Geschwindigkeit",
+		"timeline": "Zeitleiste",
+		"zoom": "Ausschnitt",
+		"zoomIn": "Vergrößern",
+		"zoomOut": "Verkleinern",
+		"wholeDay": "Ganzer Tag",
+		"zoom1": "6 Stunden",
+		"zoom2": "1 Stunde",
+		"zoom3": "15 Minuten",
+		"export": "Exportieren",
+		"exportHint": "Abspielposition an den Anfang bzw. das Ende des gewünschten Ausschnitts setzen und jeweils markieren. Der Export beginnt am Schlüsselbild davor, also bis zu ein paar Sekunden früher.",
+		"setStart": "Anfang hier",
+		"setEnd": "Ende hier",
+		"download": "Als MP4 herunterladen",
+		"clear": "Auswahl löschen",
+		"endBeforeStart": "Das Ende muss nach dem Anfang liegen.",
+		"exportTooLong": "Höchstens 24 Stunden am Stück."
 	}
 }

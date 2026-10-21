@@ -180,3 +180,18 @@ export interface StorageInfo {
 	usedBytes: number;
 	minFreeGb: number;
 }
+
+/** Aufnahmen eines Tages in der Zeitzone der Installation (Zeitleiste und Wiedergabe). */
+export interface RecordingDay {
+	/** Tag als JJJJ-MM-TT */
+	date: string;
+	today: string;
+	timeZoneId: string;
+	fromUtc: string;
+	toUtc: string;
+	/** Abspielbare Segmente in Playlist-Reihenfolge */
+	segments: { id: number; startUtc: string; endUtc: string }[];
+	events: { timeUtc: string; kind: string }[];
+	previousDate: string | null;
+	nextDate: string | null;
+}

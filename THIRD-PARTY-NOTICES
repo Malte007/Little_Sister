@@ -74,6 +74,11 @@ Lizenz: MIT (Volltext in Abschnitt A)
                            Copyright (c) .NET Foundation and Contributors
                            https://github.com/dotnet/aspnetcore
 
+Lizenz: Apache License 2.0 (Volltext in Abschnitt B)
+
+  hls.js          1.7.3    Copyright (c) 2017 Dailymotion
+                           https://github.com/video-dev/hls.js
+
 Reine Werkzeuge für Bau und Test (Vite, TypeScript, Prettier, Vitest, xUnit,
 coverlet u. a.) werden nicht ausgeliefert und sind hier nicht aufgeführt.
 

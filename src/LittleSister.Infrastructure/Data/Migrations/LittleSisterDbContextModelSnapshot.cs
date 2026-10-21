@@ -88,6 +88,9 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.Property<long>("EndUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("InitBytes")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsProtected")
                         .HasColumnType("INTEGER");
 

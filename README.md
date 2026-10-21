@@ -19,7 +19,9 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Ringspeicher (Kontingent pro Kamera, maximale Aufbewahrung, globale Freispeichergrenze) | fertig |
 | Live-Ansicht (Kachelraster, Einzelansicht mit voller Auflösung und Ton) | fertig |
 | Kamerastatus live in der Oberfläche (SignalR) | fertig |
-| Zeitleiste und Wiedergabe, Aufnahme bei Bewegung | folgt |
+| Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
+| Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | folgt |
+| Aufnahme bei Bewegung (ONVIF-Ereignisse, Marker auf der Zeitleiste) | folgt |
 
 ## Starten mit Docker
 
@@ -40,6 +42,10 @@ Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Mu
 Little Sister startet go2rtc selbst (im Docker-Image enthalten) und hält dessen Streams mit den Kameras in Sync. Die go2rtc-API lauscht nur auf `127.0.0.1`; der Browser bekommt Bild und Standbilder ausschließlich über die angemeldete Little-Sister-API. Die Kacheln nutzen den Substream, die Einzelansicht wahlweise den Hauptstream.
 
 Für WebRTC (Latenz unter einer Sekunde) muss Port **8555 (TCP und UDP)** vom Browser aus erreichbar sein. Ist er es nicht, fällt der Player automatisch auf MSE über die normale Verbindung zurück (etwas mehr Verzögerung). Fehlt go2rtc, ist nur die Live-Ansicht aus, die Aufnahme läuft weiter.
+
+### Wiedergabe und Export
+
+Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wurde. Ein Klick springt an die Stelle, Lücken werden beim Abspielen übersprungen. Abgespielt wird per HLS direkt aus den gespeicherten Segmenten, ohne Umwandlung und ohne CPU-Last auf dem Server. Der Export setzt den markierten Zeitraum ebenfalls ohne Umwandlung zu einer MP4-Datei zusammen; er beginnt am Schlüsselbild vor dem gewählten Anfang. Tagesgrenzen und Uhrzeiten richten sich nach der Zeitzone der Installation.
 
 ### Ablage der Aufnahmen
 

@@ -148,13 +148,15 @@ button:disabled {
 	cursor: default;
 }
 
-button.secondary {
+button.secondary,
+.button.secondary {
 	background: transparent;
 	border-color: var(--border);
 	color: var(--text);
 }
 
-button.secondary:hover:not(:disabled) {
+button.secondary:hover:not(:disabled),
+.button.secondary:hover {
 	background: var(--bg-input);
 }
 
