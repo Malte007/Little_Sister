@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Fachlogik ohne Abhängigkeiten zu Datenbank oder Web -->
+</Project>

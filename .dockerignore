@@ -1,0 +1,11 @@
+**/bin
+**/obj
+**/node_modules
+web/.svelte-kit
+web/build
+artifacts
+data
+recordings
+.git
+.github
+*.md

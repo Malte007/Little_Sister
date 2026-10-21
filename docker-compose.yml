@@ -1,0 +1,15 @@
+# Little Sister starten:  docker compose up -d   →   http://<server>:8080
+# go2rtc für die Live-Ansicht kommt in Schritt 3 dazu.
+services:
+  little-sister:
+    image: ${LS_IMAGE:-ghcr.io/malte007/little_sister:latest}
+    build: .
+    container_name: little-sister
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ./data:/data
+      - ./recordings:/recordings
