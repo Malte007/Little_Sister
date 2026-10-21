@@ -14,7 +14,10 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Ersteinrichtung (Admin, Speicherort, Sprache, Zeitzone) | fertig |
 | Login per Cookie (Web) und Token (Apps), Rollen Admin/Betrachter | fertig |
 | Benutzerverwaltung | fertig |
-| Kameras, Aufnahme, Ringspeicher, Live, Zeitleiste | folgt |
+| Kameras per ONVIF-Suche oder RTSP-Adresse, Zugangsdaten verschlüsselt | fertig |
+| Daueraufnahme (ein ffmpeg-Prozess pro Kamera, Segmente ohne Umwandlung, Neustart bei Ausfall) | fertig |
+| Ringspeicher (Kontingent pro Kamera, maximale Aufbewahrung, globale Freispeichergrenze) | fertig |
+| Live-Ansicht, Zeitleiste, Aufnahme bei Bewegung | folgt |
 
 ## Starten mit Docker
 
@@ -28,6 +31,17 @@ docker compose up -d --build
 
 Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`.
 
+Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
+
+### Ablage der Aufnahmen
+
+```
+recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC)
+recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
+```
+
+Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen.
+
 ### Konfiguration
 
 Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstrich trennt Ebenen):
@@ -38,11 +52,14 @@ Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstri
 | `LittleSister__DefaultRecordingsPath` | `/recordings` (Docker) | Vorschlag im Einrichtungsassistenten |
 | `LittleSister__Database__Provider` | `Sqlite` | weitere Provider folgen |
 | `LittleSister__Database__ConnectionString` | SQLite-Datei im Datenordner | eigene Verbindung |
+| `LittleSister__KeysPath` | `<DataPath>/keys` | Schlüssel für Cookies und Kamera-Passwörter, getrennt von der DB ablegbar |
+| `LittleSister__Recording__SegmentSeconds` | `60` | Länge eines Aufnahmesegments |
+| `LittleSister__Recording__FfmpegPath` | `ffmpeg` | Pfad zu ffmpeg (im Image enthalten) |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
 
 ## Entwickeln
 
-Voraussetzungen: .NET 10 SDK, Node.js 24 (mindestens 22.12).
+Voraussetzungen: .NET 10 SDK, Node.js 24 (mindestens 22.12), ffmpeg (für Aufnahme und Tests).
 
 ```bash
 dotnet run --project src/LittleSister.Api

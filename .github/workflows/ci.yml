@@ -31,6 +31,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: ffmpeg installieren (für die Aufnahme-Tests)
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            SUDO=$(command -v sudo || true)
+            $SUDO apt-get update && $SUDO apt-get install -y --no-install-recommends ffmpeg
+          fi
       - name: Bauen und testen
         run: ./scripts/build.sh
 

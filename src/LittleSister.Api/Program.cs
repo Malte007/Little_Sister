@@ -37,6 +37,9 @@ api.MapSetupEndpoints();
 api.MapAuthEndpoints();
 api.MapUserEndpoints();
 api.MapSystemEndpoints();
+api.MapCameraEndpoints();
+api.MapOnvifEndpoints();
+api.MapStorageEndpoints();
 
 // Unbekannte API-Pfade liefern 404 statt der Oberfläche
 api.MapFallback(() => Results.NotFound());

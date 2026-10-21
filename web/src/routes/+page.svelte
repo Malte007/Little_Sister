@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { invalidate } from '$app/navigation';
+	import CameraCard from '#lib/components/CameraCard.svelte';
 	import { i18n, t } from '#lib/i18n/index.svelte.js';
 	import type { PageProps } from './$types';
 
@@ -8,18 +11,34 @@
 	// Sprache der Installation gilt, solange auf diesem Gerät keine eigene gewählt wurde
 	$effect(() => i18n.useDefault(data.info.language));
 
-	const role = $derived(data.user?.roles.includes('Admin') ? 'Admin' : 'Viewer');
+	const isAdmin = $derived(data.user?.roles.includes('Admin') ?? false);
+	const role = $derived(isAdmin ? 'Admin' : 'Viewer');
+
+	// Kamerastatus regelmäßig auffrischen
+	onMount(() => {
+		const timer = setInterval(() => invalidate((url) => url.pathname === '/api/cameras'), 5000);
+		return () => clearInterval(timer);
+	});
 </script>
 
 <section in:fly={{ y: 12, duration: 400 }}>
 	<h1>{t('home.greeting', { name: data.user?.userName ?? '' })}</h1>
 	<p class="muted">{t('home.signedInAs', { role: t(`roles.${role}`) })}</p>
 
-	<div class="card empty">
-		<div class="lens" aria-hidden="true"></div>
-		<h2>{t('home.camerasTitle')}</h2>
-		<p class="muted">{t('home.camerasText')}</p>
-	</div>
+	{#if data.cameras.length > 0}
+		<div class="grid">
+			{#each data.cameras as camera (camera.id)}
+				<CameraCard {camera} />
+			{/each}
+		</div>
+	{:else}
+		<div class="card empty">
+			<div class="lens" aria-hidden="true"></div>
+			<h2>{t('home.camerasTitle')}</h2>
+			<p class="muted">{isAdmin ? t('home.camerasText') : t('home.askAdmin')}</p>
+			{#if isAdmin}<a class="button add" href="/cameras/new">{t('home.addCamera')}</a>{/if}
+		</div>
+	{/if}
 
 	<p class="muted version">{t('home.version', { version: data.info.version })}</p>
 </section>
@@ -27,6 +46,15 @@
 <style>
 	h1 {
 		font-size: 1.8rem;
+	}
+	.grid {
+		margin-top: 2rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+		gap: 1rem;
+	}
+	.add {
+		margin-top: 1.5rem;
 	}
 	.empty {
 		margin-top: 2rem;

@@ -17,6 +17,9 @@ public sealed class SystemSettings
     /// <summary>Absoluter Pfad, unter dem die Aufnahmen abgelegt werden.</summary>
     public string RecordingsPath { get; set; } = "";
 
+    /// <summary>Globale Freispeichergrenze in GB: wird sie unterschritten, löscht der Ringspeicher die ältesten Aufnahmen.</summary>
+    public double MinFreeGb { get; set; } = 10;
+
     /// <summary>Zeitpunkt, zu dem die Ersteinrichtung abgeschlossen wurde.</summary>
     public DateTimeOffset SetupCompletedAtUtc { get; set; }
 }

@@ -1,3 +1,5 @@
+using LittleSister.Core.Cameras;
+using LittleSister.Core.Recording;
 using LittleSister.Core.Settings;
 using LittleSister.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +14,8 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
     : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public DbSet<Camera> Cameras => Set<Camera>();
+    public DbSet<Segment> Segments => Set<Segment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -24,6 +28,30 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
             e.Property(s => s.Language).HasMaxLength(10);
             e.Property(s => s.TimeZoneId).HasMaxLength(100);
             e.Property(s => s.RecordingsPath).HasMaxLength(1000);
+            e.Property(s => s.MinFreeGb).HasDefaultValue(10.0);
+        });
+
+        builder.Entity<Camera>(e =>
+        {
+            e.ToTable("Cameras");
+            e.Property(c => c.Name).HasMaxLength(100);
+            e.Property(c => c.MainStreamUrl).HasMaxLength(1000);
+            e.Property(c => c.SubStreamUrl).HasMaxLength(1000);
+            e.Property(c => c.Username).HasMaxLength(200);
+            e.Property(c => c.OnvifAddress).HasMaxLength(1000);
+            e.Property(c => c.Manufacturer).HasMaxLength(200);
+            e.Property(c => c.Model).HasMaxLength(200);
+            e.Ignore(c => c.QuotaBytes);
+        });
+
+        builder.Entity<Segment>(e =>
+        {
+            e.ToTable("Segments");
+            e.Property(s => s.RelativePath).HasMaxLength(500);
+            // Ringspeicher und Zeitleiste suchen immer je Kamera nach Zeit
+            e.HasIndex(s => new { s.CameraId, s.StartUtc });
+            e.HasIndex(s => s.StartUtc);
+            e.HasOne<Camera>().WithMany().HasForeignKey(s => s.CameraId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 
