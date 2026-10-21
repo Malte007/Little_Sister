@@ -122,9 +122,61 @@ Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstri
 | `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse, z. B. `192.168.1.10:8555` bei Docker-Bridge oder NAT |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
 
-## Alternativ: Docker
+## Alternativ: Docker (z. B. Unraid)
 
-Für später (z. B. Unraid). Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg.
+Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg. Für Docker-Hosts wie Unraid gibt es ein fertiges Image.
+
+### Fertiges Image von GitHub (ghcr.io)
+
+Nach jedem Merge auf `main` baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto:
+
+```
+ghcr.io/malte007/little_sister:latest      immer der neueste Stand von main
+ghcr.io/malte007/little_sister:0.1.0-ci.N  ein bestimmter CI-Lauf (N = Laufnummer)
+```
+
+Zu sehen ist es in deinem GitHub-Profil unter **Packages**. Weil das Repository privat ist, ist auch das Paket privat. Ein Server braucht daher eine Anmeldung mit einem Token, bevor er es herunterladen darf.
+
+### Auf Unraid einrichten
+
+**1. Token anlegen.** Auf GitHub: **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**. Name z. B. `unraid`, Ablaufdatum nach Wahl, nur den Haken **`read:packages`** setzen. Den Token kopieren, er wird nur einmal angezeigt. (Fein abgestufte Tokens unterstützen die Container Registry nach meinem Stand nicht.)
+
+**2. Unraid bei ghcr.io anmelden.** Im Unraid-Webinterface oben rechts das Terminal **>_** öffnen. Dort läuft bash, nicht fish:
+
+```bash
+docker login ghcr.io -u malte007
+mkdir -p /boot/config/docker-auth && cp /root/.docker/config.json /boot/config/docker-auth/
+echo 'mkdir -p /root/.docker && cp /boot/config/docker-auth/config.json /root/.docker/' >> /boot/config/go
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `docker login ghcr.io -u malte007` | meldet Docker bei ghcr.io an; als Passwort den Token einfügen |
+| `mkdir … && cp …` | sichert die Anmeldung auf dem USB-Stick, denn `/root` liegt auf Unraid im Arbeitsspeicher und ist nach einem Neustart leer |
+| `echo … >> /boot/config/go` | stellt die Anmeldung bei jedem Start von Unraid wieder her (`go` wird beim Hochfahren ausgeführt) |
+
+Die Anmeldung wird nur zum Herunterladen und für „Nach Updates suchen“ gebraucht. Ein laufender Container läuft auch ohne sie weiter.
+
+**3. Container anlegen.** **Docker → Container hinzufügen**, Vorlage leer lassen:
+
+| Feld | Wert | Hinweis |
+| --- | --- | --- |
+| Name | `little-sister` | |
+| Repository | `ghcr.io/malte007/little_sister:latest` | |
+| Netzwerktyp | `Host` | nötig für die ONVIF-Kamerasuche (Multicast) |
+| Erweiterte Ansicht → Zusätzliche Parameter | `--user 99:100` | läuft als Unraid-Standardbenutzer `nobody:users`, sonst fehlen Schreibrechte auf den Shares |
+| Pfad `/data` | `/mnt/user/appdata/little-sister` | Datenbank, Schlüssel, Sicherungen |
+| Pfad `/recordings` | z. B. `/mnt/user/aufnahmen/little-sister` | Aufnahmen; Share am besten ohne Cache, sonst schiebt der Mover die Dateien ständig hin und her |
+| Variable `TZ` | `Europe/Berlin` | |
+| WebUI | `http://[IP]:[PORT:8080]/` | |
+
+Mit Host-Netzwerk belegt Little Sister die Ports **8080** (Oberfläche), **8555 TCP/UDP** (WebRTC) und **1984** (go2rtc, nur intern). Läuft auf Unraid schon Frigate oder ein anderes go2rtc, die Ports per Variable umlegen: `ASPNETCORE_HTTP_PORTS`, `LittleSister__Live__WebRtcPort`, `LittleSister__Live__ApiPort`.
+
+Danach `http://<unraid-ip>:8080` öffnen und die Einrichtung durchklicken; als Aufnahmeordner `/recordings` lassen.
+
+**4. Aktualisieren.** Nach einem Merge auf GitHub ist das neue Image nach einigen Minuten fertig (Reiter **Actions**). Dann auf Unraid unter **Docker → Nach Updates suchen** und beim Container **Update anwenden**. Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank nach `/data/backups` gesichert.
+
+### Selbst bauen mit docker compose
 
 ```bash
 docker compose up -d --build
