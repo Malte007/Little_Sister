@@ -143,4 +143,32 @@ public class PlaybackTests
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync(Query(start, start.AddHours(25)))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync(Query(start.AddDays(-2), start.AddDays(-1)))).StatusCode);
     }
+
+    [Fact]
+    public async Task Vorschaubilder_EntstehenBeiBedarfUndWerdenZwischengespeichert()
+    {
+        using var factory = new LittleSisterFactory();
+        factory.Settings["LittleSister:Recording:FfmpegPath"] = "ffmpeg";
+        var admin = await factory.CreateAdminClientAsync();
+        var (camera, start) = await SeedAsync(factory, admin);
+
+        var day = await admin.GetFromJsonAsync<JsonElement>($"/api/recordings/{camera}/day?date={DateOf(start)}");
+        Assert.Equal(SegmentThumbnails.IntervalSeconds, day.GetProperty("thumbnailSeconds").GetInt32());
+        var segment = day.GetProperty("segments")[0];
+        Assert.Equal(1, segment.GetProperty("thumbnails").GetInt32());
+
+        var url = $"/api/recordings/segments/{segment.GetProperty("id").GetInt64()}/thumbnails.jpg";
+        var response = await admin.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal([0xFF, 0xD8], bytes[..2]);
+
+        // Liegt jetzt neben dem Segment und wird beim nächsten Mal nur ausgeliefert
+        var files = Directory.EnumerateFiles(factory.RecordingsPath, "*.jpg", SearchOption.AllDirectories).ToList();
+        Assert.Single(files);
+        Assert.Equal(bytes, await (await admin.GetAsync(url)).Content.ReadAsByteArrayAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/recordings/segments/999999/thumbnails.jpg")).StatusCode);
+    }
 }

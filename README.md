@@ -20,7 +20,7 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Live-Ansicht (Kachelraster, Einzelansicht mit voller Auflösung und Ton) | fertig |
 | Kamerastatus live in der Oberfläche (SignalR) | fertig |
 | Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
-| Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | folgt |
+| Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | fertig |
 | Aufnahme bei Bewegung (ONVIF-Ereignisse, Marker auf der Zeitleiste) | folgt |
 
 ## Installation auf einem Ubuntu-Server
@@ -94,14 +94,19 @@ Für WebRTC (Latenz unter einer Sekunde) muss Port **8555 (TCP und UDP)** vom Br
 
 Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wurde. Ein Klick springt an die Stelle, Lücken werden beim Abspielen übersprungen. Abgespielt wird per HLS direkt aus den gespeicherten Segmenten, ohne Umwandlung und ohne CPU-Last auf dem Server. Der Export setzt den markierten Zeitraum ebenfalls ohne Umwandlung zu einer MP4-Datei zusammen; er beginnt am Schlüsselbild vor dem gewählten Anfang. Tagesgrenzen und Uhrzeiten richten sich nach der Zeitzone der Installation.
 
+Über **+ Kamera hinzufügen** laufen bis zu neun Kameras synchron über dieselbe Zeitleiste, je Kamera mit einer eigenen Spur. Über die Auswahl im Kachelkopf lässt sich eine Kamera gegen eine andere tauschen, ✕ entfernt sie. Hat eine Kamera zur aktuellen Uhrzeit keine Aufnahme, pausiert sie, bis wieder etwas aufgenommen wurde. Der Export erzeugt je Kamera eine eigene Datei. Jede Kamera dekodiert ihr eigenes Video im Browser; bei vielen 4K-Kameras kann ein schwächerer Rechner an seine Grenzen kommen.
+
+Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Little Sister zu jedem Segment einen Bildstreifen mit einem Bild alle 10 Sekunden ab. Der Streifen entsteht nach der Aufnahme im Hintergrund aus den Schlüsselbildern, also mit wenig Rechenzeit. Für ältere Aufnahmen entsteht er beim ersten Überfahren.
+
 ### Ablage der Aufnahmen
 
 ```
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC)
+recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.jpg   Vorschaubilder des Segments
 recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
 ```
 
-Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen.
+Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment.
 
 ### Konfiguration
 

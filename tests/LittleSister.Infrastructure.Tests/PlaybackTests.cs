@@ -97,4 +97,57 @@ public class PlaybackTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Theory]
+    [InlineData(60, 6)]
+    [InlineData(61, 7)]
+    [InlineData(59.5, 6)]
+    [InlineData(2, 1)]
+    [InlineData(0, 1)]
+    public void Vorschaubilder_EinesJeIntervall(double seconds, int expected)
+    {
+        var segment = new Segment { StartUtc = T0, EndUtc = T0.AddSeconds(seconds) };
+        Assert.Equal(expected, SegmentThumbnails.CountOf(segment));
+    }
+
+    [Fact]
+    public async Task Vorschaubilder_StreifenMitEinemBildJeIntervall()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"ls-thumbs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // 35 s mit Schlüsselbild alle 4 s → 4 Bilder, je 160 × 120 (Seitenverhältnis 4:3)
+            var file = Path.Combine(dir, "120000.mp4");
+            Run("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=10", "-t", "35",
+                "-c:v", "libx264", "-g", "40", "-pix_fmt", "yuv420p",
+                "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", file);
+            var segment = new Segment { StorageRoot = dir, RelativePath = "120000.mp4", StartUtc = T0, EndUtc = T0.AddSeconds(35) };
+
+            var thumbnails = new SegmentThumbnails(
+                Microsoft.Extensions.Options.Options.Create(new LittleSisterOptions()),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<SegmentThumbnails>.Instance);
+            Assert.True(await thumbnails.EnsureAsync(segment));
+
+            var size = Run("ffprobe", "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", SegmentThumbnails.PathOf(segment));
+            Assert.Equal("640,120", size.Trim());
+            Assert.Equal(Path.Combine(dir, "120000.jpg"), SegmentThumbnails.PathOf(segment));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static string Run(string tool, params string[] args)
+    {
+        var psi = new ProcessStartInfo(tool) { RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in args)
+            psi.ArgumentList.Add(arg);
+        using var process = Process.Start(psi)!;
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, process.StandardError.ReadToEnd());
+        return output;
+    }
 }

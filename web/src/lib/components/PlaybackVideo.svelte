@@ -11,9 +11,10 @@
 		start = 0,
 		rate = 1,
 		audio = false,
-		playing = $bindable(false),
+		playing = false,
 		ontime,
-		onended
+		onended,
+		onblocked
 	}: {
 		/** Adresse der Playlist */
 		src: string;
@@ -22,22 +23,61 @@
 		/** Abspielgeschwindigkeit, z. B. 4 für vierfach */
 		rate?: number;
 		audio?: boolean;
+		/** Soll laufen; in einer Lücke (siehe follow) pausiert das Video trotzdem */
 		playing?: boolean;
 		/** Aktuelle Abspielposition in Sekunden */
 		ontime?: (mediaTime: number) => void;
 		onended?: () => void;
+		/** Der Browser hat das Abspielen verweigert (z. B. Autoplay-Sperre) */
+		onblocked?: () => void;
 	} = $props();
 
 	let video: HTMLVideoElement;
 	let hls: Hls | undefined;
 	let waiting = $state(true);
 	let failed = $state(false);
+	// Keine Aufnahme zur aktuellen Uhrzeit (bei mehreren Kameras)
+	let idle = $state(false);
+	let lastSeek = 0;
 
 	/** Springt an eine Stelle im Video (Sekunden). */
 	export function seek(mediaTime: number) {
 		if (!video) return;
+		idle = false;
+		lastSeek = Date.now();
 		video.currentTime = Math.max(mediaTime, 0);
+		resume();
 		ontime?.(video.currentTime);
+	}
+
+	/**
+	 * Folgt einer vorgegebenen Position: weicht das Video um mehr als tolerance Sekunden ab, springt es dorthin.
+	 * null bedeutet: zu dieser Uhrzeit gibt es keine Aufnahme, das Video pausiert.
+	 */
+	export function follow(target: number | null, tolerance: number) {
+		// Kommt die Kamera aus einer Lücke, genau an die Stelle springen
+		if (idle && target !== null) tolerance = 0.3;
+		idle = target === null;
+		if (!video || target === null || video.readyState === 0) return;
+		// Nach einem Sprung erst laden lassen, sonst springt ein langsames Video immer wieder
+		if (
+			Math.abs(video.currentTime - target) > tolerance &&
+			(tolerance < 1 || Date.now() - lastSeek > 2000)
+		) {
+			lastSeek = Date.now();
+			video.currentTime = target;
+		}
+		resume();
+	}
+
+	// Nur eine echte Sperre melden; ein abgebrochener Start (z. B. weil noch nichts geladen ist) zählt nicht
+	function blocked(e: DOMException) {
+		if (e.name === 'NotAllowedError') onblocked?.();
+	}
+
+	// Nach dem Ende oder einer Lücke weiterlaufen, sofern es laufen soll
+	function resume() {
+		if (playing && !idle && video.paused && !video.ended) video.play().catch(blocked);
 	}
 
 	onMount(() => {
@@ -74,8 +114,9 @@
 	// Steuerung von außen: Abspielen/Pause, Geschwindigkeit und Ton
 	$effect(() => {
 		if (!video) return;
-		if (playing && video.paused) video.play().catch(() => (playing = false));
-		else if (!playing && !video.paused) video.pause();
+		const run = playing && !idle;
+		if (run && video.paused && !video.ended) video.play().catch(blocked);
+		else if (!run && !video.paused) video.pause();
 	});
 	$effect(() => {
 		if (video) video.playbackRate = rate;
@@ -90,25 +131,30 @@
 		bind:this={video}
 		muted
 		playsinline
-		ontimeupdate={() => ontime?.(video.currentTime)}
+		ontimeupdate={() => {
+			// Vor dem Laden und während eines Sprungs keine (veralteten) Positionen melden
+			if (!video.seeking && video.readyState > 0) ontime?.(video.currentTime);
+		}}
 		onwaiting={() => (waiting = true)}
 		onseeking={() => (waiting = true)}
 		onseeked={() => (waiting = false)}
 		onloadeddata={() => (waiting = false)}
 		onplaying={() => (waiting = false)}
-		oncanplay={() => (waiting = false)}
-		onplay={() => (playing = true)}
-		onpause={() => (playing = false)}
+		oncanplay={() => {
+			waiting = false;
+			resume();
+		}}
 		onratechange={() => {
 			// Manche Browser setzen die Geschwindigkeit beim Laden zurück
 			if (video.playbackRate !== rate) video.playbackRate = rate;
 		}}
-		onended={() => {
-			playing = false;
-			onended?.();
-		}}
+		onended={() => onended?.()}
 	></video>
-	{#if failed}
+	{#if idle}
+		<div class="overlay dim" transition:fade={{ duration: 200 }}>
+			<span class="note">{t('playback.noRecordingNow')}</span>
+		</div>
+	{:else if failed}
 		<div class="overlay" transition:fade={{ duration: 200 }}>
 			<span class="error">{t('playback.failed')}</span>
 		</div>
@@ -139,6 +185,13 @@
 		display: grid;
 		place-items: center;
 		pointer-events: none;
+	}
+	.dim {
+		background: rgb(0 0 0 / 0.55);
+	}
+	.note {
+		color: #fff;
+		font-size: 0.85rem;
 	}
 	.spinner {
 		width: 2rem;

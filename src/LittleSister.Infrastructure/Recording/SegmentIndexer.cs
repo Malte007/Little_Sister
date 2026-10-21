@@ -1,12 +1,13 @@
 using LittleSister.Core.Recording;
 using LittleSister.Infrastructure.Data;
+using LittleSister.Infrastructure.Playback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace LittleSister.Infrastructure.Recording;
 
 /// <summary>Verschiebt fertige Segmente an ihren Ablageort und trägt sie in die Datenbank ein.</summary>
-public sealed class SegmentIndexer(IServiceScopeFactory scopes, ILogger<SegmentIndexer> logger)
+public sealed class SegmentIndexer(IServiceScopeFactory scopes, SegmentThumbnails thumbnails, ILogger<SegmentIndexer> logger)
 {
     /// <summary>Übernimmt ein fertig geschriebenes Segment aus dem Eingangsordner.</summary>
     /// <param name="duration">Länge laut ffmpeg; null = aus Dateizeit schätzen (z. B. nach einem Absturz).</param>
@@ -46,6 +47,7 @@ public sealed class SegmentIndexer(IServiceScopeFactory scopes, ILogger<SegmentI
         var db = scope.ServiceProvider.GetRequiredService<LittleSisterDbContext>();
         db.Segments.Add(segment);
         await db.SaveChangesAsync(ct);
+        thumbnails.Enqueue(segment);
         return segment;
     }
 
