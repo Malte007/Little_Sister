@@ -191,4 +191,8 @@ Für Gitea unter *Repository → Einstellungen → Actions*:
 
 ## Lizenz
 
-[AGPL-3.0](LICENSE)
+Little Sister ist **proprietär**, alle Rechte vorbehalten (siehe [LICENSE](LICENSE)). Nutzung, Weitergabe und Änderung nur mit Erlaubnis des Urhebers.
+
+- Mitgelieferte Fremdsoftware und ihre Lizenzen stehen in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES); die Datei liegt auch im Docker-Image unter `/app/THIRD-PARTY-NOTICES`.
+- Neue Abhängigkeiten nur mit freizügiger Lizenz (MIT, BSD, Apache 2.0, PostgreSQL-Lizenz). Keine GPL-Bibliotheken im eigenen Prozess; ffmpeg wird nur als eigener Prozess gestartet.
+- Beiträge Dritter nur mit Contributor License Agreement.
