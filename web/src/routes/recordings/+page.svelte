@@ -299,16 +299,17 @@
 					</select>
 					{#if (maps[i]?.length ?? 0) > 0}
 						<button
-							class="icon"
+							class="tool audio"
 							aria-pressed={audioCamera === cam.id}
-							title={audioCamera === cam.id ? t('live.audioOn') : t('live.audioOff')}
 							onclick={() => (audioCamera = audioCamera === cam.id ? null : cam.id)}
-							>{audioCamera === cam.id ? '🔊' : '🔈'}</button
 						>
+							<span aria-hidden="true">{audioCamera === cam.id ? '🔊' : '🔇'}</span>
+							{audioCamera === cam.id ? t('live.audioOn') : t('live.audioOff')}
+						</button>
 					{/if}
 					{#if cams.length > 1}
 						<button
-							class="icon"
+							class="tool"
 							title={t('playback.removeCamera')}
 							aria-label={t('playback.removeCamera')}
 							onclick={() => removeCamera(cam.id)}>✕</button
@@ -456,7 +457,7 @@
 		translate: -50%;
 		/* Abzüglich Kopf, Steuerleiste und Zeitleiste (wächst mit jeder Spur) sowie der Leiste je Kachelreihe */
 		--video-height: calc(
-			100dvh - 26rem - max(0rem, var(--lanes) * 1.4rem - 2.6rem) - var(--rows) * 2.6rem
+			100dvh - 26rem - max(0rem, var(--lanes) * 1.4rem - 2.6rem) - var(--rows) * 3rem
 		);
 		width: min(
 			calc(100vw - 3rem),
@@ -471,30 +472,40 @@
 		padding: 0;
 		overflow: hidden;
 	}
+	/* Kopf jeder Kachel: Kameraauswahl, Ton, Entfernen – gut sichtbar wie die übrigen Bedienelemente */
 	.tile-bar {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem 0.35rem;
+		gap: 0.4rem;
+		padding: 0.4rem;
+		background: var(--bg-input);
 		border-bottom: 1px solid var(--border);
 	}
 	.tile-bar select {
 		width: auto;
 		flex: 1;
 		min-width: 0;
-		padding: 0.2rem 0.4rem;
-		font-size: 0.85rem;
-		border: none;
-		background: transparent;
-	}
-	.icon {
-		padding: 0.15rem 0.45rem;
-		background: transparent;
-		color: var(--text-muted);
+		padding: 0.35rem 0.6rem;
 		font-size: 0.9rem;
+		font-weight: 600;
+		background-color: var(--bg-raised);
+		border-color: color-mix(in srgb, var(--text-muted) 50%, transparent);
 	}
-	.icon[aria-pressed='true'] {
-		color: var(--accent);
+	.tool {
+		padding: 0.35rem 0.7rem;
+		font-size: 0.85rem;
+		white-space: nowrap;
+		background: var(--bg-raised);
+		border-color: color-mix(in srgb, var(--text-muted) 50%, transparent);
+		color: var(--text);
+	}
+	.tool:hover:not(:disabled) {
+		background: var(--bg);
+	}
+	.tool.audio[aria-pressed='true'] {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: #fff;
 	}
 	.empty {
 		aspect-ratio: 16 / 9;
