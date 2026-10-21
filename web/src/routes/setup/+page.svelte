@@ -41,7 +41,8 @@
 			else if (form.password !== form.passwordRepeat)
 				e.passwordRepeat = t('setup.passwordMismatch');
 		}
-		if (step === 1 && !form.recordingsPath.startsWith('/'))
+		// Absoluter Pfad unter Linux (/…) oder Windows (C:\… bzw. \\server\…)
+		if (step === 1 && !/^(\/|[A-Za-z]:[\\/]|\\\\)/.test(form.recordingsPath))
 			e.recordingsPath = tError('absolutePathRequired');
 		errors = e;
 		return Object.keys(e).length === 0;

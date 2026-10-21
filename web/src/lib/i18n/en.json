@@ -79,7 +79,7 @@
 		"required": "Please fill in.",
 		"unsupported": "This language is not supported.",
 		"unknown": "Unknown value.",
-		"absolutePathRequired": "Please enter a full path starting with /.",
+		"absolutePathRequired": "Please enter a full path, e.g. /recordings or D:\\Recordings.",
 		"notWritable": "Little Sister may not write to this folder.",
 		"notAccessible": "This folder cannot be reached.",
 		"PasswordTooShort": "The password is too short (at least 10 characters).",

@@ -79,7 +79,7 @@
 		"required": "Bitte ausfüllen.",
 		"unsupported": "Diese Sprache wird nicht unterstützt.",
 		"unknown": "Unbekannter Wert.",
-		"absolutePathRequired": "Bitte einen vollständigen Pfad angeben, der mit / beginnt.",
+		"absolutePathRequired": "Bitte einen vollständigen Pfad angeben, z. B. /recordings oder D:\\Aufnahmen.",
 		"notWritable": "In diesen Ordner darf Little Sister nicht schreiben.",
 		"notAccessible": "Dieser Ordner ist nicht erreichbar.",
 		"PasswordTooShort": "Das Passwort ist zu kurz (mindestens 10 Zeichen).",

@@ -4,7 +4,9 @@ namespace LittleSister.Core.Tests;
 
 public class SetupValidatorTests
 {
-    private static SetupRequest Valid() => new("admin", "geheim-123456", "de", "Europe/Berlin", "/recordings");
+    // Plattformabhängig absoluter Pfad, damit die Tests unter Linux und Windows laufen
+    private static SetupRequest Valid() =>
+        new("admin", "geheim-123456", "de", "Europe/Berlin", Path.Combine(Path.GetTempPath(), "recordings"));
 
     [Fact]
     public void Validate_GueltigeEingaben_OhneFehler()
