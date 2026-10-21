@@ -19,7 +19,8 @@ export default defineConfig({
 	],
 	server: {
 		proxy: {
-			'/api': backend,
+			// ws: auch WebSockets (Live-Bild, Statusmeldungen) weiterleiten
+			'/api': { target: backend, ws: true },
 			'/healthz': backend
 		}
 	},

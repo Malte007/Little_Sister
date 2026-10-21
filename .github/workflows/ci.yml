@@ -37,6 +37,17 @@ jobs:
             SUDO=$(command -v sudo || true)
             $SUDO apt-get update && $SUDO apt-get install -y --no-install-recommends ffmpeg
           fi
+      - name: go2rtc installieren (für die Live-Tests)
+        env:
+          GO2RTC_VERSION: '1.9.14'
+        run: |
+          if ! command -v go2rtc >/dev/null; then
+            case "$(uname -m)" in aarch64|arm64) ARCH=arm64 ;; *) ARCH=amd64 ;; esac
+            SUDO=$(command -v sudo || true)
+            curl -fsSL -o /tmp/go2rtc "https://github.com/AlexxIT/go2rtc/releases/download/v${GO2RTC_VERSION}/go2rtc_linux_${ARCH}"
+            $SUDO install -m 755 /tmp/go2rtc /usr/local/bin/go2rtc
+          fi
+          go2rtc -version
       - name: Bauen und testen
         run: ./scripts/build.sh
 

@@ -175,5 +175,18 @@
 		"pathHint": "Little Sister stores new recordings here.",
 		"pathChangeHint": "New recordings go to the new folder. Existing ones stay in the previous folder and are still managed and deleted there.",
 		"saved": "Saved"
+	},
+	"live": {
+		"connecting": "Connecting …",
+		"cameraError": "Camera unreachable",
+		"quality": "Resolution",
+		"sd": "Substream",
+		"hd": "Full resolution",
+		"audioOn": "Sound on",
+		"audioOff": "Sound off",
+		"starting": "Live view is starting.",
+		"go2rtcMissing": "Live view is unavailable: go2rtc was not found. Recording continues anyway.",
+		"go2rtcFailed": "Live view is currently disrupted and restarting. Recording continues anyway.",
+		"codecUnsupported": "This browser cannot play {codec}."
 	}
 }

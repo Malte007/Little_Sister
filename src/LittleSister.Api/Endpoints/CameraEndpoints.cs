@@ -3,6 +3,7 @@ using LittleSister.Core.Cameras;
 using LittleSister.Core.Recording;
 using LittleSister.Core.Settings;
 using LittleSister.Core.Storage;
+using LittleSister.Infrastructure;
 using LittleSister.Infrastructure.Data;
 using LittleSister.Infrastructure.Recording;
 using LittleSister.Infrastructure.Security;
@@ -40,7 +41,10 @@ internal static class CameraEndpoints
 
     internal sealed record StorageUsage(long UsedBytes, int SegmentCount, DateTimeOffset? OldestUtc, DateTimeOffset? NewestUtc, double? EstimatedDays);
 
-    internal sealed record CameraStatusDto(string State, DateTimeOffset SinceUtc, string? LastError, int Restarts, DateTimeOffset? LastSegmentUtc);
+    internal sealed record CameraStatusDto(string State, DateTimeOffset SinceUtc, string? LastError, int Restarts, DateTimeOffset? LastSegmentUtc)
+    {
+        public static CameraStatusDto From(CameraStatus s) => new(s.State.ToString(), s.SinceUtc, s.LastError, s.Restarts, s.LastSegmentUtc);
+    }
 
     /// <summary>Kamera für die Oberfläche; das Passwort wird nie ausgeliefert, nur ob eines gesetzt ist.</summary>
     internal sealed record CameraDto(
@@ -68,7 +72,7 @@ internal static class CameraEndpoints
 
     private static async Task<IResult> Create(
         CameraRequest request, LittleSisterDbContext db, CameraCredentialProtector credentials,
-        IRecordingControl recording, CameraStatusRegistry statuses, TimeProvider time)
+        CameraChanges changes, CameraStatusRegistry statuses, TimeProvider time)
     {
         var (normalized, errors) = Normalize(request);
         if (errors.Count > 0)
@@ -79,13 +83,13 @@ internal static class CameraEndpoints
         db.Cameras.Add(camera);
         await db.SaveChangesAsync();
 
-        recording.RequestReload();
+        changes.Notify();
         return Results.Created($"/api/cameras/{camera.Id}", ToDto(camera, statuses, null));
     }
 
     private static async Task<IResult> Update(
         Guid id, CameraRequest request, LittleSisterDbContext db, CameraCredentialProtector credentials,
-        IRecordingControl recording, CameraStatusRegistry statuses)
+        CameraChanges changes, CameraStatusRegistry statuses)
     {
         var camera = await db.Cameras.FindAsync(id);
         if (camera is null)
@@ -98,14 +102,14 @@ internal static class CameraEndpoints
         Apply(camera, normalized, credentials, keepPasswordIfNull: true);
         await db.SaveChangesAsync();
 
-        recording.RequestReload();
+        changes.Notify();
         var usage = await UsageAsync(db, id);
         return Results.Ok(ToDto(camera, statuses, usage.GetValueOrDefault(id)));
     }
 
     /// <param name="deleteRecordings">true: auch alle Aufnahmen der Kamera von der Platte löschen.</param>
     private static async Task<IResult> Delete(
-        Guid id, bool? deleteRecordings, LittleSisterDbContext db, IRecordingControl recording, CameraStatusRegistry statuses)
+        Guid id, bool? deleteRecordings, LittleSisterDbContext db, CameraChanges changes, CameraStatusRegistry statuses)
     {
         var camera = await db.Cameras.FindAsync(id);
         if (camera is null)
@@ -119,7 +123,7 @@ internal static class CameraEndpoints
 
         db.Cameras.Remove(camera); // Segmente werden per Fremdschlüssel mitgelöscht
         await db.SaveChangesAsync();
-        recording.RequestReload();
+        changes.Notify();
         statuses.Remove(id);
 
         if (deleteRecordings == true)
@@ -197,7 +201,7 @@ internal static class CameraEndpoints
         return new CameraDto(
             c.Id, c.Name, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword is not null,
             c.OnvifAddress, c.Manufacturer, c.Model, c.RecordingEnabled, c.QuotaGb, c.MaxRetentionDays,
-            new CameraStatusDto(c.RecordingEnabled ? s.State.ToString() : nameof(CameraState.Idle), s.SinceUtc, s.LastError, s.Restarts, s.LastSegmentUtc),
+            CameraStatusDto.From(c.RecordingEnabled ? s : s with { State = CameraState.Idle }),
             usage is null ? new StorageUsage(0, 0, null, null, null) : usage with
             {
                 EstimatedDays = usage.OldestUtc is { } from && usage.NewestUtc is { } to

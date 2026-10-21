@@ -21,6 +21,8 @@ public sealed class LittleSisterFactory : WebApplicationFactory<Program>
     {
         // Standardmäßig kein echtes ffmpeg: angelegte Testkameras sollen nichts aufnehmen
         ["LittleSister:Recording:FfmpegPath"] = "/nicht/vorhanden/ffmpeg",
+        // Ebenso kein go2rtc; die Live-Tests schalten es gezielt ein
+        ["LittleSister:Live:Go2rtcPath"] = "/nicht/vorhanden/go2rtc",
     };
 
     /// <summary>Dienste austauschen, z. B. die Kamera-Eingabe durch eine Testquelle.</summary>
@@ -61,6 +63,15 @@ public sealed class LittleSisterFactory : WebApplicationFactory<Program>
         var client = CreateClient();
         (await client.PostAsJsonAsync("/api/auth/login", new { userName, password })).EnsureSuccessStatusCode();
         return client;
+    }
+
+    /// <summary>Meldet sich per Bearer-Token an, z. B. für WebSockets und SignalR in Tests.</summary>
+    public async Task<string> LoginTokenAsync()
+    {
+        using var client = CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login?useTokens=true", new { userName = AdminName, password = AdminPassword });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("accessToken").GetString()!;
     }
 
     protected override void Dispose(bool disposing)

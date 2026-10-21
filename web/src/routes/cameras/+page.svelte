@@ -14,9 +14,9 @@
 	let { data }: PageProps = $props();
 	const isAdmin = $derived(data.user?.roles.includes('Admin') ?? false);
 
-	// Status alle 5 s auffrischen; live per SignalR folgt mit der Live-Ansicht
+	// Status kommt live per SignalR; Speicherbelegung alle 30 s auffrischen
 	onMount(() => {
-		const timer = setInterval(() => invalidate((url) => url.pathname === '/api/cameras'), 5000);
+		const timer = setInterval(() => invalidate((url) => url.pathname === '/api/cameras'), 30000);
 		return () => clearInterval(timer);
 	});
 
