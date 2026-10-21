@@ -152,8 +152,8 @@
 		"passwordKeep": "Leer lassen, um das gespeicherte Passwort zu behalten",
 		"test": "Verbindung testen",
 		"testing": "Teste …",
-		"testOk": "Verbindung klappt: {codec}, {width} × {height}",
-		"hevcHint": "H.265 wird ohne Umwandlung aufgenommen. Für die Live-Ansicht im Browser nutzt Little Sister den Substream.",
+		"testOk": "{codec}, {width} × {height}",
+		"hevcHint": "H.265 wird ohne Umwandlung aufgenommen. Für die Live-Ansicht im Browser bitte einen H.264-Substream eintragen, H.265 können viele Browser nicht abspielen.",
 		"recording": "Daueraufnahme",
 		"recordingHint": "Nimmt rund um die Uhr auf. Aufnahme bei Bewegung folgt später.",
 		"quota": "Speicherkontingent (GB)",
@@ -164,7 +164,9 @@
 		"delete": "Kamera entfernen",
 		"deleteConfirm": "{name} wirklich entfernen?",
 		"deleteRecordings": "Auch alle Aufnahmen dieser Kamera löschen?",
-		"back": "Zurück zur Auswahl"
+		"back": "Zurück zur Auswahl",
+		"mainShort": "Hauptstream",
+		"subShort": "Substream"
 	},
 	"storage": {
 		"title": "Speicher",

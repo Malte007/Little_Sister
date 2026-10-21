@@ -152,8 +152,8 @@
 		"passwordKeep": "Leave empty to keep the stored password",
 		"test": "Test connection",
 		"testing": "Testing …",
-		"testOk": "Connection works: {codec}, {width} × {height}",
-		"hevcHint": "H.265 is recorded without conversion. For live view in the browser Little Sister uses the sub stream.",
+		"testOk": "{codec}, {width} × {height}",
+		"hevcHint": "H.265 is recorded without conversion. For the live view, please add an H.264 substream; many browsers cannot play H.265.",
 		"recording": "Continuous recording",
 		"recordingHint": "Records around the clock. Motion-based recording follows later.",
 		"quota": "Storage quota (GB)",
@@ -164,7 +164,9 @@
 		"delete": "Remove camera",
 		"deleteConfirm": "Really remove {name}?",
 		"deleteRecordings": "Also delete all recordings of this camera?",
-		"back": "Back to selection"
+		"back": "Back to selection",
+		"mainShort": "Main stream",
+		"subShort": "Substream"
 	},
 	"storage": {
 		"title": "Storage",

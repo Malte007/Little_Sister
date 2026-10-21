@@ -33,7 +33,8 @@
 	let error = $state<string>();
 	let busy = $state(false);
 	let testing = $state(false);
-	let test = $state<StreamProbeResult>();
+	// Ergebnis je Stream, damit klar ist, welche Auflösung zu welcher Adresse gehört
+	let tests = $state<{ stream: 'main' | 'sub'; result: StreamProbeResult }[]>([]);
 
 	function toInput(): CameraInput {
 		return {
@@ -47,31 +48,48 @@
 		};
 	}
 
-	async function testStream() {
-		testing = true;
-		test = undefined;
+	async function probe(url: string): Promise<StreamProbeResult> {
 		try {
-			test = await api<StreamProbeResult>('/api/cameras/test-stream', {
+			return await api<StreamProbeResult>('/api/cameras/test-stream', {
 				method: 'POST',
 				body: {
-					url: form.mainStreamUrl,
+					url,
 					username: form.username || null,
 					password: form.password || null,
 					cameraId: cameraId ?? null
 				}
 			});
 		} catch (e) {
-			test = {
+			return {
 				success: false,
 				codec: null,
 				width: 0,
 				height: 0,
 				error: e instanceof ApiError ? (e.field('url') ?? e.code) : 'network'
 			};
-		} finally {
-			testing = false;
 		}
 	}
+
+	/** Prüft Haupt- und (falls angegeben) Substream gleichzeitig. */
+	async function testStreams() {
+		testing = true;
+		tests = [];
+		const streams: { stream: 'main' | 'sub'; url: string }[] = [
+			{ stream: 'main', url: form.mainStreamUrl.trim() }
+		];
+		if (form.subStreamUrl.trim()) streams.push({ stream: 'sub', url: form.subStreamUrl.trim() });
+		tests = await Promise.all(
+			streams.map(async ({ stream, url }) => ({ stream, result: await probe(url) }))
+		);
+		testing = false;
+	}
+
+	// H.265 ohne H.264-Substream: Aufnahme klappt, die Live-Ansicht aber in vielen Browsern nicht
+	const hevcWithoutLive = $derived(
+		tests.length > 0 &&
+			tests.every((x) => !x.result.success || x.result.codec === 'hevc') &&
+			tests.some((x) => x.result.codec === 'hevc')
+	);
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -144,24 +162,25 @@
 		<button
 			type="button"
 			class="secondary"
-			onclick={testStream}
+			onclick={testStreams}
 			disabled={testing || !form.mainStreamUrl}
 		>
 			{testing ? t('cameras.testing') : t('cameras.test')}
 		</button>
-		{#if test}
-			<p class={test.success ? 'ok' : 'error'} transition:slide={{ duration: 200 }}>
-				{test.success
+		{#each tests as { stream, result } (stream)}
+			<p class={result.success ? 'ok' : 'error'} transition:slide={{ duration: 200 }}>
+				<strong>{stream === 'main' ? t('cameras.mainShort') : t('cameras.subShort')}:</strong>
+				{result.success
 					? t('cameras.testOk', {
-							codec: (test.codec ?? '?').toUpperCase(),
-							width: test.width,
-							height: test.height
+							codec: (result.codec ?? '?').toUpperCase(),
+							width: result.width,
+							height: result.height
 						})
-					: tError(test.error ?? undefined)}
+					: tError(result.error ?? undefined)}
 			</p>
-			{#if test.success && test.codec === 'hevc'}
-				<p class="muted small">{t('cameras.hevcHint')}</p>
-			{/if}
+		{/each}
+		{#if hevcWithoutLive}
+			<p class="muted small">{t('cameras.hevcHint')}</p>
 		{/if}
 	</div>
 
