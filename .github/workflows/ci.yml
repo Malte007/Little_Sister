@@ -9,11 +9,10 @@
 #   REGISTRY_USERNAME, REGISTRY_PASSWORD
 name: CI
 
+# Die ganze Pipeline läuft nur für Versions-Tags (v0.1.1, v0.1.2-test, …) oder von Hand gestartet
 on:
   push:
-    branches: [main]
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -53,7 +52,7 @@ jobs:
 
   docker:
     needs: build-test
-    # Das Image entsteht nur für Versions-Tags (v0.1.1, v0.1.2-test, …), nicht bei jedem Push
+    # Von Hand gestartet (ohne Tag) wird nur gebaut und getestet
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     env:
