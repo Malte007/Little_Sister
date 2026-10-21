@@ -5,7 +5,7 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 - Backend: ASP.NET Core (.NET 10), EF Core mit SQLite
 - Frontend: SvelteKit + TypeScript (als statische Single-Page-App vom Backend ausgeliefert)
 - Live-Ansicht: go2rtc (WebRTC, MSE als Rückfall), von Little Sister selbst gestartet
-- Betrieb: Linux, Docker (z. B. Unraid)
+- Betrieb: Ubuntu-Server als systemd-Dienst, alternativ Docker
 
 ## Stand
 
@@ -23,19 +23,66 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | folgt |
 | Aufnahme bei Bewegung (ONVIF-Ereignisse, Marker auf der Zeitleiste) | folgt |
 
-## Starten mit Docker
+## Installation auf einem Ubuntu-Server
 
-```bash
-docker compose up -d --build
+Little Sister läuft als systemd-Dienst direkt auf dem Server. Das Skript `scripts/install-ubuntu.sh` baut Oberfläche und Backend, installiert go2rtc, legt den Dienstbenutzer `littlesister` an und richtet den Dienst ein. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten.
+
+Einmalig die Voraussetzungen installieren (die Befehle funktionieren in fish und bash):
+
+```fish
+sudo apt update
+sudo apt install -y git curl ffmpeg dotnet-sdk-10.0
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
 
 | Zeile | Wirkung |
 | --- | --- |
-| `docker compose up -d --build` | baut das Image aus dem Quellcode und startet Little Sister im Hintergrund |
+| `sudo apt update` | lädt die aktuellen Paketlisten |
+| `sudo apt install -y git curl ffmpeg dotnet-sdk-10.0` | installiert git, curl, ffmpeg (Aufnahme) und das .NET 10 SDK (Bauen). Findet apt `dotnet-sdk-10.0` nicht (ältere Ubuntu-Versionen), vorher `sudo add-apt-repository ppa:dotnet/backports` ausführen |
+| `curl … setup_24.x \| sudo -E bash -` | richtet die Paketquelle für Node.js 24 ein (nur zum Bauen der Oberfläche nötig) |
+| `sudo apt install -y nodejs` | installiert Node.js 24 mit npm |
 
-Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`.
+Projekt holen und installieren:
 
-Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
+```fish
+git clone https://github.com/malte007/little_sister.git
+cd little_sister
+./scripts/install-ubuntu.sh
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `git clone …` | lädt das Repository herunter (privat: mit GitHub-Benutzer und Token anmelden) |
+| `cd little_sister` | wechselt in den Projektordner |
+| `./scripts/install-ubuntu.sh` | baut alles, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
+
+Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`).
+
+| Was | Wo |
+| --- | --- |
+| Programm | `/opt/little-sister/app` |
+| Datenbank, Schlüssel, Sicherungen | `/var/lib/little-sister` |
+| Einstellungen (Umgebungsvariablen, siehe unten) | `/etc/little-sister/little-sister.env` |
+| Protokoll | `journalctl -u little-sister -f` |
+
+Aktualisieren:
+
+```fish
+cd little_sister
+git pull
+./scripts/install-ubuntu.sh
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `cd little_sister` | wechselt in den Projektordner |
+| `git pull` | holt den neuesten Stand |
+| `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu; Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert |
+
+Ist eine Firewall (ufw) aktiv, müssen die Ports 8080 (Oberfläche) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
+
+## Betrieb
 
 ### Live-Ansicht
 
@@ -58,12 +105,12 @@ Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player 
 
 ### Konfiguration
 
-Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstrich trennt Ebenen):
+Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstrich trennt Ebenen), auf dem Ubuntu-Server in `/etc/little-sister/little-sister.env`, danach `sudo systemctl restart little-sister`:
 
 | Variable | Standard | Bedeutung |
 | --- | --- | --- |
-| `LittleSister__DataPath` | `/data` (Docker) | Datenbank, Schlüssel, Sicherungen |
-| `LittleSister__DefaultRecordingsPath` | `/recordings` (Docker) | Vorschlag im Einrichtungsassistenten |
+| `LittleSister__DataPath` | `/var/lib/little-sister` (Ubuntu), `/data` (Docker) | Datenbank, Schlüssel, Sicherungen |
+| `LittleSister__DefaultRecordingsPath` | `/srv/little-sister/recordings` (Ubuntu), `/recordings` (Docker) | Vorschlag im Einrichtungsassistenten |
 | `LittleSister__Database__Provider` | `Sqlite` | weitere Provider folgen |
 | `LittleSister__Database__ConnectionString` | SQLite-Datei im Datenordner | eigene Verbindung |
 | `LittleSister__KeysPath` | `<DataPath>/keys` | Schlüssel für Cookies und Kamera-Passwörter, getrennt von der DB ablegbar |
@@ -74,6 +121,22 @@ Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstri
 | `LittleSister__Live__WebRtcPort` | `8555` | WebRTC-Port (TCP und UDP) |
 | `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse, z. B. `192.168.1.10:8555` bei Docker-Bridge oder NAT |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
+
+## Alternativ: Docker
+
+Für später (z. B. Unraid). Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg.
+
+```bash
+docker compose up -d --build
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `docker compose up -d --build` | baut das Image aus dem Quellcode und startet Little Sister im Hintergrund |
+
+Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`; Einstellungen werden in `docker-compose.yml` unter `environment` gesetzt.
+
+Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
 
 ## Entwickeln
 

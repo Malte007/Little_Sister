@@ -110,7 +110,8 @@
 		"endBeforeStart": "The end must be after the start.",
 		"exportTooLong": "At most 24 hours at once.",
 		"noRecordings": "There are no recordings in this period.",
-		"exportFailed": "The export failed."
+		"exportFailed": "The export failed.",
+		"notFound": "This page does not exist."
 	},
 	"status": {
 		"Idle": "Off",

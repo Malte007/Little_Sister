@@ -110,7 +110,8 @@
 		"endBeforeStart": "Das Ende muss nach dem Anfang liegen.",
 		"exportTooLong": "Höchstens 24 Stunden am Stück.",
 		"noRecordings": "In diesem Zeitraum gibt es keine Aufnahmen.",
-		"exportFailed": "Der Export ist fehlgeschlagen."
+		"exportFailed": "Der Export ist fehlgeschlagen.",
+		"notFound": "Diese Seite gibt es nicht."
 	},
 	"status": {
 		"Idle": "Aus",
