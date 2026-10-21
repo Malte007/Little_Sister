@@ -43,7 +43,9 @@
 			onvifAddress: null,
 			manufacturer: null,
 			model: null,
-			recordingEnabled: true,
+			recordingMode: 'Continuous',
+			preRollSeconds: 10,
+			postRollSeconds: 30,
 			quotaGb: 200,
 			maxRetentionDays: null,
 			rotation: 0

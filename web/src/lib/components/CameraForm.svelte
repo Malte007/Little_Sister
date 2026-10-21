@@ -2,7 +2,13 @@
 	// Formular für Kameradaten, genutzt beim Anlegen und Bearbeiten
 	import { untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { api, ApiError, type CameraInput, type StreamProbeResult } from '#lib/api.js';
+	import {
+		api,
+		ApiError,
+		type CameraInput,
+		type RecordingMode,
+		type StreamProbeResult
+	} from '#lib/api.js';
 	import { t, tError } from '#lib/i18n/index.svelte.js';
 	import Field from './Field.svelte';
 
@@ -25,6 +31,9 @@
 		subStreamUrl: start.subStreamUrl ?? '',
 		username: start.username ?? '',
 		password: start.password ?? '',
+		onvifAddress: start.onvifAddress ?? '',
+		preRollSeconds: String(start.preRollSeconds),
+		postRollSeconds: String(start.postRollSeconds),
 		quotaGb: String(start.quotaGb),
 		maxRetentionDays: start.maxRetentionDays?.toString() ?? ''
 	});
@@ -43,6 +52,9 @@
 			username: form.username.trim() || null,
 			// Beim Bearbeiten bedeutet ein leeres Feld: Passwort behalten
 			password: form.password || (cameraId && hasPassword ? null : ''),
+			onvifAddress: form.onvifAddress.trim() || null,
+			preRollSeconds: Number(form.preRollSeconds || 0),
+			postRollSeconds: Number(form.postRollSeconds || 0),
 			quotaGb: Number(form.quotaGb),
 			maxRetentionDays: form.maxRetentionDays ? Number(form.maxRetentionDays) : null
 		};
@@ -90,6 +102,8 @@
 			tests.every((x) => !x.result.success || x.result.codec === 'hevc') &&
 			tests.some((x) => x.result.codec === 'hevc')
 	);
+
+	const modes: RecordingMode[] = ['Continuous', 'Motion', 'Off'];
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -194,13 +208,54 @@
 		<p class="muted small">{t('cameras.rotationHint')}</p>
 	</div>
 
-	<label class="toggle">
-		<input type="checkbox" bind:checked={form.recordingEnabled} />
-		<span>
-			<strong>{t('cameras.recording')}</strong>
-			<span class="muted small">{t('cameras.recordingHint')}</span>
-		</span>
-	</label>
+	<fieldset class="modes">
+		<legend>{t('cameras.recording')}</legend>
+		{#each modes as mode (mode)}
+			<label class="toggle" class:selected={form.recordingMode === mode}>
+				<input type="radio" name="recordingMode" value={mode} bind:group={form.recordingMode} />
+				<span>
+					<strong>{t(`cameras.mode${mode}`)}</strong>
+					<span class="muted small">{t(`cameras.mode${mode}Hint`)}</span>
+				</span>
+			</label>
+		{/each}
+		{#if errors.recordingMode}<p class="error small">{errors.recordingMode}</p>{/if}
+	</fieldset>
+
+	{#if form.recordingMode === 'Motion'}
+		<div transition:slide={{ duration: 200 }}>
+			<Field
+				label={t('cameras.onvifAddress')}
+				bind:value={form.onvifAddress}
+				placeholder="http://192.168.1.20:8000/onvif/device_service"
+				hint={t('cameras.onvifAddressHint')}
+				spellcheck="false"
+				error={errors.onvifAddress ?? errors.recordingMode}
+			/>
+			<div class="row">
+				<Field
+					label={t('cameras.preRoll')}
+					type="number"
+					min="0"
+					max="60"
+					step="1"
+					bind:value={form.preRollSeconds}
+					hint={t('cameras.preRollHint')}
+					error={errors.preRollSeconds}
+				/>
+				<Field
+					label={t('cameras.postRoll')}
+					type="number"
+					min="0"
+					max="600"
+					step="1"
+					bind:value={form.postRollSeconds}
+					hint={t('cameras.postRollHint')}
+					error={errors.postRollSeconds}
+				/>
+			</div>
+		</div>
+	{/if}
 
 	<div class="row">
 		<Field
@@ -268,6 +323,25 @@
 	}
 	.toggle input {
 		margin-top: 0.25rem;
+	}
+	.modes {
+		border: 0;
+		padding: 0;
+		margin: 0 0 1.25rem;
+	}
+	.modes legend {
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+	}
+	.modes .toggle {
+		margin-bottom: 0.5rem;
+	}
+	.toggle.selected {
+		border-color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+	}
+	.error {
+		color: var(--danger);
 	}
 	.toggle span {
 		display: flex;

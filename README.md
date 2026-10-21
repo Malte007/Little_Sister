@@ -21,7 +21,7 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Kamerastatus live in der Oberfläche (SignalR) | fertig |
 | Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
 | Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | fertig |
-| Aufnahme bei Bewegung (ONVIF-Ereignisse, Marker auf der Zeitleiste) | folgt |
+| Aufnahme bei Bewegung (ONVIF-Ereignisse, Vor- und Nachlauf, Bewegungen auf der Zeitleiste) | fertig |
 
 ## Installation auf einem Ubuntu-Server
 
@@ -98,12 +98,24 @@ Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wu
 
 Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Little Sister zu jedem Segment einen Bildstreifen mit einem Bild alle 10 Sekunden ab. Der Streifen entsteht nach der Aufnahme im Hintergrund aus den Schlüsselbildern, also mit wenig Rechenzeit. Für ältere Aufnahmen entsteht er beim ersten Überfahren. Wer die Rechenzeit sparen will, schaltet die Vorschaubilder unter **Kameras → Speicher** aus; dann entstehen keine neuen Bilder, und die Zeitleiste zeigt keine Vorschau.
 
+### Aufnahme bei Bewegung
+
+Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: **Dauerhaft**, **Bei Bewegung** oder **Aus**. Bei Bewegung erkennt die Kamera selbst die Bewegung und meldet sie per ONVIF (PullPoint-Ereignisse); Little Sister wertet kein Bild aus. Die Bewegungserkennung wird also in der Kamera eingeschaltet und eingestellt, und die Kamera braucht eine ONVIF-Adresse (wird bei der Suche automatisch eingetragen).
+
+| Vorlauf | Was passiert |
+| --- | --- |
+| 0 Sekunden | ffmpeg startet erst mit der Bewegungsmeldung und hört nach dem Nachlauf wieder auf. Ohne Bewegung läuft nichts. Bis die Verbindung steht, vergehen etwa 1 bis 3 Sekunden; dieser Anfang fehlt in der Aufnahme. |
+| mehr als 0 | Der Stream läuft dauernd in einen kurzen Zwischenspeicher (`.buffer`), der laufend gelöscht wird. Kommt eine Bewegung, wird das Stück davor übernommen. Gespeichert wird in Stücken etwa so lang wie der Vorlauf, daher kann ein paar Sekunden mehr übrig bleiben. |
+
+Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung weiter aufgenommen wird. Bewegungen erscheinen auf der Zeitleiste als gelbe Balken über der Aufnahme; mit **‹ Bewegung** und **Bewegung ›** springt die Wiedergabe zur vorherigen oder nächsten. Im Kamerastatus zeigt **Wartet auf Bewegung**, dass gerade nichts gespeichert wird, und eine gelbe Marke **Bewegung**, dass die Kamera gerade Bewegung meldet. Bei Kameras mit ONVIF-Adresse werden Bewegungen auch bei Daueraufnahme auf der Zeitleiste angezeigt.
+
 ### Ablage der Aufnahmen
 
 ```
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC)
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.jpg   Vorschaubilder des Segments
 recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
+recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorlauf (nur bei Aufnahme bei Bewegung)
 ```
 
 Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment.

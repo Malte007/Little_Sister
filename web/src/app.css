@@ -10,6 +10,7 @@
 	--accent-strong: #5a86f5;
 	--danger: #ff6b7a;
 	--success: #4fd1a5;
+	--motion: #f5b544;
 	--radius: 14px;
 	--shadow: 0 20px 60px -20px rgb(0 0 0 / 0.6);
 	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -26,6 +27,7 @@
 		--text-muted: #5f6577;
 		--accent: #3d6cf0;
 		--accent-strong: #2c58d8;
+		--motion: #c98407;
 		--shadow: 0 20px 60px -24px rgb(20 30 60 / 0.25);
 		color-scheme: light;
 	}
@@ -109,7 +111,8 @@ select:focus {
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-input[type='checkbox'] {
+input[type='checkbox'],
+input[type='radio'] {
 	width: auto;
 	accent-color: var(--accent);
 }

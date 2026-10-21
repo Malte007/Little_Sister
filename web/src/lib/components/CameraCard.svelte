@@ -2,7 +2,7 @@
 	// Kachel einer Kamera: Name, Zustand, Speicherbelegung
 	import type { Camera } from '#lib/api.js';
 	import { formatBytes, formatDays } from '#lib/format.js';
-	import { i18n, t } from '#lib/i18n/index.svelte.js';
+	import { i18n, t, tError } from '#lib/i18n/index.svelte.js';
 	import { statusOf } from '#lib/live/status.svelte.js';
 	import StatusPill from './StatusPill.svelte';
 	import StorageBar from './StorageBar.svelte';
@@ -34,11 +34,16 @@
 				<p class="muted small">{[camera.manufacturer, camera.model].filter(Boolean).join(' ')}</p>
 			{/if}
 		</div>
-		<StatusPill state={status.state} title={statusTitle} />
+		<StatusPill state={status.state} title={statusTitle} motion={status.motion} />
 	</div>
 
 	{#if status.state === 'Error' && status.lastError}
 		<p class="error small">{status.lastError}</p>
+	{/if}
+	{#if status.events === 'Error'}
+		<p class="error small">
+			{t('cameras.eventsError', { error: tError(status.eventError ?? undefined) })}
+		</p>
 	{/if}
 
 	<StorageBar

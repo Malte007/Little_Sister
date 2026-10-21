@@ -7,7 +7,14 @@
 	import PlaybackVideo from '#lib/components/PlaybackVideo.svelte';
 	import Timeline from '#lib/components/Timeline.svelte';
 	import { i18n, t } from '#lib/i18n/index.svelte.js';
-	import { buildMap, mergeRanges, toMedia, toWall, mediaLength } from '#lib/playback/timeline.js';
+	import {
+		buildMap,
+		eventNeighbor,
+		mergeRanges,
+		toMedia,
+		toWall,
+		mediaLength
+	} from '#lib/playback/timeline.js';
 	import {
 		jumpTolerance,
 		leaderAt,
@@ -27,13 +34,24 @@
 	const from = $derived(day ? Date.parse(day.fromUtc) : 0);
 	const to = $derived(day ? Date.parse(day.toUtc) : 0);
 	const maps = $derived(days.map((d) => buildMap(d.segments)));
+	// Bewegungen je Kamera; eine laufende reicht bis jetzt
+	const events = $derived(
+		days.map((d) =>
+			d.events.map((e) => ({
+				start: Date.parse(e.startUtc),
+				end: e.endUtc ? Date.parse(e.endUtc) : Date.now()
+			}))
+		)
+	);
+	const eventStarts = $derived(events.flat().map((e) => e.start));
 	const lanes = $derived(
-		cams.map((c, i) => ({ label: c.name, ranges: mergeRanges(maps[i] ?? []) }))
+		cams.map((c, i) => ({
+			label: c.name,
+			ranges: mergeRanges(maps[i] ?? []),
+			events: events[i] ?? []
+		}))
 	);
 	const hasRecordings = $derived(maps.some((m) => m.length > 0));
-	const events = $derived(
-		days.flatMap((d) => d.events.map((e) => ({ time: Date.parse(e.timeUtc), kind: e.kind })))
-	);
 	// Blättern zum nächstgelegenen Tag, an dem irgendeine der Kameras etwas aufgenommen hat
 	const previousDate = $derived(
 		days
@@ -350,6 +368,20 @@
 					<button class:active={rate === r} onclick={() => (rate = r)}>{r}×</button>
 				{/each}
 			</div>
+			{#if eventStarts.length > 0}
+				<div class="segmented events" role="group" aria-label={t('playback.motion')}>
+					{#each [-1, 1] as const as dir (dir)}
+						{@const target = position === null ? null : eventNeighbor(eventStarts, position, dir)}
+						<button
+							disabled={target === null}
+							onclick={() => target !== null && seekWall(target)}
+							title={t(dir < 0 ? 'playback.previousEvent' : 'playback.nextEvent')}
+						>
+							{dir < 0 ? `‹ ${t('playback.motion')}` : `${t('playback.motion')} ›`}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -358,7 +390,6 @@
 			{from}
 			{to}
 			{lanes}
-			{events}
 			{position}
 			{selection}
 			timeZone={day.timeZoneId}

@@ -80,7 +80,11 @@ export interface SystemInfo {
 	timeZoneId: string;
 }
 
-export type CameraState = 'Idle' | 'Connecting' | 'Recording' | 'Error';
+/** Standby = wartet auf Bewegung, speichert nichts */
+export type CameraState = 'Idle' | 'Standby' | 'Connecting' | 'Recording' | 'Error';
+
+/** Off = keine Aufnahme, Continuous = rund um die Uhr, Motion = nur bei Bewegung (ONVIF) */
+export type RecordingMode = 'Off' | 'Continuous' | 'Motion';
 
 export interface CameraStatus {
 	state: CameraState;
@@ -88,6 +92,12 @@ export interface CameraStatus {
 	lastError: string | null;
 	restarts: number;
 	lastSegmentUtc: string | null;
+	/** Verbindung zu den ONVIF-Ereignissen */
+	events: 'None' | 'Connecting' | 'Connected' | 'Error';
+	eventError: string | null;
+	/** Meldet die Kamera gerade Bewegung? */
+	motion: boolean;
+	lastMotionUtc: string | null;
 }
 
 /** Ob die Live-Ansicht bereitsteht; error z. B. "go2rtcMissing". */
@@ -107,6 +117,10 @@ export interface Camera {
 	manufacturer: string | null;
 	model: string | null;
 	recordingEnabled: boolean;
+	recordingMode: RecordingMode;
+	/** Sekunden vor bzw. nach einer Bewegung, die mit aufgehoben werden */
+	preRollSeconds: number;
+	postRollSeconds: number;
 	quotaGb: number;
 	maxRetentionDays: number | null;
 	/** Drehung im Uhrzeigersinn: 0, 90, 180 oder 270 */
@@ -131,7 +145,9 @@ export interface CameraInput {
 	onvifAddress: string | null;
 	manufacturer: string | null;
 	model: string | null;
-	recordingEnabled: boolean;
+	recordingMode: RecordingMode;
+	preRollSeconds: number;
+	postRollSeconds: number;
 	quotaGb: number;
 	maxRetentionDays: number | null;
 	rotation: number;
@@ -193,7 +209,8 @@ export interface RecordingDay {
 	toUtc: string;
 	/** Abspielbare Segmente in Playlist-Reihenfolge; thumbnails = Bilder im Bildstreifen */
 	segments: { id: number; startUtc: string; endUtc: string; thumbnails: number }[];
-	events: { timeUtc: string; kind: string }[];
+	/** Ereignisse wie Bewegung; endUtc null = läuft noch */
+	events: { startUtc: string; endUtc: string | null; kind: string }[];
 	previousDate: string | null;
 	nextDate: string | null;
 	/** Abstand der Vorschaubilder in Sekunden; 0 = vom Admin ausgeschaltet */

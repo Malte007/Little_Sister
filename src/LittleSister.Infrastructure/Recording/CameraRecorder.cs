@@ -30,6 +30,9 @@ public sealed class CameraRecorder(
     private TimeSpan PreRoll => TimeSpan.FromSeconds(camera.PreRollSeconds);
     private TimeSpan PostRoll => TimeSpan.FromSeconds(camera.PostRollSeconds);
 
+    /// <summary>Segmentlänge bei Bewegung ohne Vorlauf: kurz, damit eine laufende Bewegung bald abspielbar ist.</summary>
+    public const int MotionSegmentSeconds = 10;
+
     /// <summary>Segmentlänge im Zwischenspeicher: etwa so lang wie der Vorlauf, damit wenig mehr als nötig übrig bleibt.</summary>
     internal static int BufferSegmentSeconds(int preRollSeconds) => Math.Clamp(preRollSeconds, 2, 10);
 
@@ -53,14 +56,16 @@ public sealed class CameraRecorder(
         indexer.CommitAsync(recordingsRoot, camera.Id, file, duration, CancellationToken.None);
 
     /// <summary>ffmpeg dauerhaft laufen lassen und nach Abbrüchen neu starten.</summary>
+    /// <param name="announce">Als "nimmt auf" melden, sobald ffmpeg schreibt (nicht beim Zwischenspeicher).</param>
     private async Task RunContinuouslyAsync(
-        string directory, int segmentSeconds, Func<string, TimeSpan, Task<Segment?>> onSegment, CancellationToken ct)
+        string directory, int segmentSeconds, Func<string, TimeSpan, Task<Segment?>> onSegment, CancellationToken ct,
+        bool announce = true)
     {
         var attempt = 0;
         while (!ct.IsCancellationRequested)
         {
             statuses.Update(camera.Id, s => s with { State = CameraState.Connecting });
-            var result = await RunFfmpegOnceAsync(directory, segmentSeconds, onSegment, ct);
+            var result = await RunFfmpegOnceAsync(directory, segmentSeconds, onSegment, ct, announce);
             if (ct.IsCancellationRequested)
                 break;
 
@@ -87,7 +92,8 @@ public sealed class CameraRecorder(
             using var run = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var stopper = StopAfterMotionAsync(run);
             statuses.Update(camera.Id, s => s with { State = CameraState.Connecting });
-            var result = await RunFfmpegOnceAsync(incoming, options.SegmentSeconds, CommitAsync, run.Token);
+            var result = await RunFfmpegOnceAsync(
+                incoming, Math.Min(options.SegmentSeconds, MotionSegmentSeconds), CommitAsync, run.Token, announce: true);
             var motionOver = await StopAndWaitAsync(run, stopper);
             await indexer.RecoverIncomingAsync(recordingsRoot, camera.Id, ct);
             if (ct.IsCancellationRequested)
@@ -120,12 +126,19 @@ public sealed class CameraRecorder(
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var flusher = Task.Run(async () =>
         {
-            // Bei Bewegungsbeginn sofort die Segmente des Vorlaufs übernehmen
+            // Bei Bewegungsbeginn sofort die Segmente des Vorlaufs übernehmen und den Zustand melden,
+            // nicht erst, wenn das laufende Segment fertig ist
             while (!stop.IsCancellationRequested)
             {
                 var (state, changed) = motion.Snapshot(camera.Id);
-                await buffer.FlushAsync(state, time.GetUtcNow());
-                await changed.WaitAsync(stop.Token);
+                var now = time.GetUtcNow();
+                await buffer.FlushAsync(state, now);
+                var covered = state.Covers(now, PostRoll);
+                statuses.Update(camera.Id, s => s.State is CameraState.Standby or CameraState.Recording
+                    ? s with { State = covered ? CameraState.Recording : CameraState.Standby }
+                    : s);
+                var wait = covered && !state.Active ? state.EndUtc!.Value + PostRoll - now : Timeout.InfiniteTimeSpan;
+                await Task.WhenAny(changed, Task.Delay(wait, time, stop.Token)).Unwrap();
             }
         }, CancellationToken.None);
 
@@ -135,7 +148,7 @@ public sealed class CameraRecorder(
             if (segment is null)
                 statuses.Update(camera.Id, s => s with { State = CameraState.Standby, LastError = null });
             return segment;
-        }, ct);
+        }, ct, announce: false);
 
         await stop.CancelAsync();
         try
@@ -223,7 +236,8 @@ public sealed class CameraRecorder(
     private sealed record RunResult(int ExitCode, string? LastError, int SegmentsWritten);
 
     private async Task<RunResult> RunFfmpegOnceAsync(
-        string directory, int segmentSeconds, Func<string, TimeSpan, Task<Segment?>> onSegment, CancellationToken ct)
+        string directory, int segmentSeconds, Func<string, TimeSpan, Task<Segment?>> onSegment, CancellationToken ct,
+        bool announce = false)
     {
         var psi = new ProcessStartInfo(options.FfmpegPath)
         {
@@ -237,6 +251,7 @@ public sealed class CameraRecorder(
         foreach (var arg in BuildArguments(input.CreateInputArguments(camera), directory, segmentSeconds, camera.Rotation))
             psi.ArgumentList.Add(arg);
 
+        var existing = Directory.EnumerateFiles(directory).ToHashSet();
         using var process = new Process { StartInfo = psi };
         try
         {
@@ -246,6 +261,10 @@ public sealed class CameraRecorder(
         {
             return new RunResult(-1, $"ffmpeg nicht gefunden ({options.FfmpegPath}): {ex.Message}", 0);
         }
+
+        // Das erste Segment ist erst nach der Segmentlänge fertig; "nimmt auf" gilt schon, sobald ffmpeg schreibt
+        using var watch = new CancellationTokenSource();
+        var watcher = announce ? AnnounceWhenWritingAsync(directory, existing, watch.Token) : Task.CompletedTask;
 
         var lastErrors = new Queue<string>();
         var stderrTask = Task.Run(async () =>
@@ -312,11 +331,25 @@ public sealed class CameraRecorder(
 
         await process.WaitForExitAsync(CancellationToken.None);
         await stderrTask;
+        await watch.CancelAsync();
+        await watcher;
 
         string? lastError;
         lock (lastErrors)
             lastError = lastErrors.LastOrDefault();
         return new RunResult(process.ExitCode, lastError, segments);
+    }
+
+    private async Task AnnounceWhenWritingAsync(string directory, HashSet<string> existing, CancellationToken ct)
+    {
+        try
+        {
+            while (!Directory.EnumerateFiles(directory, "*.mp4").Any(f => !existing.Contains(f) && new FileInfo(f).Length > 0))
+                await Task.Delay(TimeSpan.FromMilliseconds(500), time, ct);
+            statuses.Update(camera.Id, s => s with { State = CameraState.Recording, LastError = null });
+        }
+        catch (OperationCanceledException) { }
+        catch (IOException) { /* Ordner kurz nicht lesbar: Meldung kommt mit dem ersten Segment */ }
     }
 
     /// <summary>ffmpeg-Aufruf: Video kopieren (keine CPU-Last), Ton nach AAC, damit auch G.711-Kameras in MP4 passen.

@@ -88,11 +88,18 @@
 
 			if (HlsJs.isSupported()) {
 				hls = new HlsJs({ startPosition: start, maxBufferLength: 30, backBufferLength: 60 });
+				let recoveries = 0;
 				hls.on(HlsJs.Events.ERROR, (_, data) => {
 					if (!data.fatal) return;
-					// Netz- und Decoderfehler lassen sich meist ohne Neuladen beheben
+					// Netz- und Decoderfehler lassen sich meist ohne Neuladen beheben; einen Codec,
+					// den der Browser nicht kann, aber nicht, daher nicht endlos wiederholen
 					if (data.type === HlsJs.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
-					else if (data.type === HlsJs.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
+					else if (
+						data.type === HlsJs.ErrorTypes.MEDIA_ERROR &&
+						data.details !== HlsJs.ErrorDetails.BUFFER_ADD_CODEC_ERROR &&
+						recoveries++ < 3
+					)
+						hls?.recoverMediaError();
 					else failed = true;
 				});
 				hls.loadSource(src);

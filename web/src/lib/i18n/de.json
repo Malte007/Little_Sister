@@ -111,7 +111,12 @@
 		"exportTooLong": "Höchstens 24 Stunden am Stück.",
 		"noRecordings": "In diesem Zeitraum gibt es keine Aufnahmen.",
 		"exportFailed": "Der Export ist fehlgeschlagen.",
-		"notFound": "Diese Seite gibt es nicht."
+		"notFound": "Diese Seite gibt es nicht.",
+		"motionNeedsOnvif": "Für Aufnahme bei Bewegung braucht die Kamera eine ONVIF-Adresse.",
+		"outOfRange": "Der Wert liegt außerhalb des erlaubten Bereichs.",
+		"invalidRecordingMode": "Unbekannte Aufnahmeart.",
+		"onvifNoEvents": "Die Kamera bietet keine ONVIF-Ereignisse an.",
+		"eventsFailed": "Die Verbindung zu den Ereignissen der Kamera ist fehlgeschlagen."
 	},
 	"status": {
 		"Idle": "Aus",
@@ -120,7 +125,9 @@
 		"Error": "Gestört",
 		"since": "seit {time}",
 		"restarts": "{count} Neustarts",
-		"lastError": "Letzter Fehler: {error}"
+		"lastError": "Letzter Fehler: {error}",
+		"Standby": "Wartet auf Bewegung",
+		"motion": "Bewegung"
 	},
 	"cameras": {
 		"title": "Kameras",
@@ -161,8 +168,7 @@
 		"testing": "Teste …",
 		"testOk": "{codec}, {width} × {height}",
 		"hevcHint": "H.265 wird ohne Umwandlung aufgenommen. Für die Live-Ansicht im Browser bitte einen H.264-Substream eintragen, H.265 können viele Browser nicht abspielen.",
-		"recording": "Daueraufnahme",
-		"recordingHint": "Nimmt rund um die Uhr auf. Aufnahme bei Bewegung folgt später.",
+		"recording": "Aufnahme",
 		"quota": "Speicherkontingent (GB)",
 		"quotaHint": "Ist es voll, werden die ältesten Aufnahmen dieser Kamera gelöscht.",
 		"retention": "Höchstens aufbewahren (Tage)",
@@ -176,7 +182,20 @@
 		"subShort": "Substream",
 		"rotation": "Bild drehen",
 		"rotationNone": "nicht gedreht",
-		"rotationHint": "Im Uhrzeigersinn. Dreht nur die Anzeige, ohne Rechenaufwand; Aufnahmen werden beim Abspielen gedreht."
+		"rotationHint": "Im Uhrzeigersinn. Dreht nur die Anzeige, ohne Rechenaufwand; Aufnahmen werden beim Abspielen gedreht.",
+		"modeContinuous": "Dauerhaft",
+		"modeContinuousHint": "Nimmt rund um die Uhr auf.",
+		"modeMotion": "Bei Bewegung",
+		"modeMotionHint": "Nimmt nur auf, wenn die Kamera per ONVIF Bewegung meldet. Die Bewegungserkennung stellst du in der Kamera ein.",
+		"modeOff": "Aus",
+		"modeOffHint": "Keine Aufnahme, nur Live-Bild.",
+		"onvifAddress": "ONVIF-Adresse",
+		"onvifAddressHint": "Über diese Adresse meldet die Kamera Bewegung. Wird bei der Suche automatisch eingetragen.",
+		"preRoll": "Vorlauf (Sekunden)",
+		"preRollHint": "So viel wird vor der Bewegung mit aufgehoben. Dafür läuft der Stream dauernd in einen kurzen Zwischenspeicher. Bei 0 startet die Aufnahme erst mit der Bewegung.",
+		"postRoll": "Nachlauf (Sekunden)",
+		"postRollHint": "So lange läuft die Aufnahme nach dem Ende der Bewegung weiter.",
+		"eventsError": "Bewegungsmeldungen nicht verfügbar: {error}"
 	},
 	"storage": {
 		"title": "Speicher",
@@ -239,6 +258,9 @@
 		"noRecordingNow": "Keine Aufnahme zu dieser Zeit",
 		"addCamera": "Kamera hinzufügen",
 		"removeCamera": "Kamera entfernen",
-		"downloadFor": "{name} herunterladen"
+		"downloadFor": "{name} herunterladen",
+		"previousEvent": "Vorherige Bewegung",
+		"nextEvent": "Nächste Bewegung",
+		"motion": "Bewegung"
 	}
 }

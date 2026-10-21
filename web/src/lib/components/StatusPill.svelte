@@ -1,17 +1,34 @@
 <script lang="ts">
-	// Farbiger Zustand einer Kamera; "Nimmt auf" pulsiert dezent
+	// Farbiger Zustand einer Kamera; "Nimmt auf" pulsiert dezent, Bewegung erscheint als eigene Marke
 	import type { CameraState } from '#lib/api.js';
 	import { t } from '#lib/i18n/index.svelte.js';
 
-	let { state, title }: { state: CameraState; title?: string } = $props();
+	let {
+		state,
+		title,
+		motion = false
+	}: { state: CameraState; title?: string; motion?: boolean } = $props();
 </script>
 
-<span class="pill {state.toLowerCase()}" {title}>
-	<span class="dot"></span>
-	{t(`status.${state}`)}
+<span class="pills">
+	<span class="pill {state.toLowerCase()}" {title}>
+		<span class="dot"></span>
+		{t(`status.${state}`)}
+	</span>
+	{#if motion}
+		<span class="pill motion">
+			<span class="dot"></span>
+			{t('status.motion')}
+		</span>
+	{/if}
 </span>
 
 <style>
+	.pills {
+		display: inline-flex;
+		gap: 0.35rem;
+		flex-wrap: wrap;
+	}
 	.pill {
 		display: inline-flex;
 		align-items: center;
@@ -40,6 +57,16 @@
 	.connecting {
 		color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 14%, transparent);
+	}
+	.standby {
+		color: var(--accent);
+	}
+	.motion {
+		color: var(--motion);
+		background: color-mix(in srgb, var(--motion) 16%, transparent);
+	}
+	.motion .dot {
+		animation: blink 0.8s ease-in-out infinite;
 	}
 	.error {
 		color: var(--danger);

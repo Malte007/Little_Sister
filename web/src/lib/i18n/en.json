@@ -111,7 +111,12 @@
 		"exportTooLong": "At most 24 hours at once.",
 		"noRecordings": "There are no recordings in this period.",
 		"exportFailed": "The export failed.",
-		"notFound": "This page does not exist."
+		"notFound": "This page does not exist.",
+		"motionNeedsOnvif": "Recording on motion needs the camera’s ONVIF address.",
+		"outOfRange": "The value is out of the allowed range.",
+		"invalidRecordingMode": "Unknown recording mode.",
+		"onvifNoEvents": "The camera does not offer ONVIF events.",
+		"eventsFailed": "Connecting to the camera’s events failed."
 	},
 	"status": {
 		"Idle": "Off",
@@ -120,7 +125,9 @@
 		"Error": "Disrupted",
 		"since": "since {time}",
 		"restarts": "{count} restarts",
-		"lastError": "Last error: {error}"
+		"lastError": "Last error: {error}",
+		"Standby": "Waiting for motion",
+		"motion": "Motion"
 	},
 	"cameras": {
 		"title": "Cameras",
@@ -161,8 +168,7 @@
 		"testing": "Testing …",
 		"testOk": "{codec}, {width} × {height}",
 		"hevcHint": "H.265 is recorded without conversion. For the live view, please add an H.264 substream; many browsers cannot play H.265.",
-		"recording": "Continuous recording",
-		"recordingHint": "Records around the clock. Motion-based recording follows later.",
+		"recording": "Recording",
 		"quota": "Storage quota (GB)",
 		"quotaHint": "When full, the oldest recordings of this camera are deleted.",
 		"retention": "Keep at most (days)",
@@ -176,7 +182,20 @@
 		"subShort": "Substream",
 		"rotation": "Rotate image",
 		"rotationNone": "not rotated",
-		"rotationHint": "Clockwise. Only rotates the display, at no processing cost; recordings are rotated during playback."
+		"rotationHint": "Clockwise. Only rotates the display, at no processing cost; recordings are rotated during playback.",
+		"modeContinuous": "Continuous",
+		"modeContinuousHint": "Records around the clock.",
+		"modeMotion": "On motion",
+		"modeMotionHint": "Records only when the camera reports motion via ONVIF. Motion detection is configured in the camera.",
+		"modeOff": "Off",
+		"modeOffHint": "No recording, live view only.",
+		"onvifAddress": "ONVIF address",
+		"onvifAddressHint": "The camera reports motion through this address. Filled in automatically by the search.",
+		"preRoll": "Pre-roll (seconds)",
+		"preRollHint": "Kept from before the motion. The stream then runs constantly into a short buffer. With 0, recording starts with the motion.",
+		"postRoll": "Post-roll (seconds)",
+		"postRollHint": "Recording continues this long after the motion ends.",
+		"eventsError": "Motion events unavailable: {error}"
 	},
 	"storage": {
 		"title": "Storage",
@@ -239,6 +258,9 @@
 		"noRecordingNow": "No recording at this time",
 		"addCamera": "Add camera",
 		"removeCamera": "Remove camera",
-		"downloadFor": "Download {name}"
+		"downloadFor": "Download {name}",
+		"previousEvent": "Previous motion",
+		"nextEvent": "Next motion",
+		"motion": "Motion"
 	}
 }

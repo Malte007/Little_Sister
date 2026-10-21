@@ -56,6 +56,6 @@ public enum RecordingMode
 {
     Off,
     Continuous,
-    /// <summary>Aufgenommen wird laufend; aufgehoben wird nur, was in der Nähe eines Bewegungsereignisses liegt.</summary>
+    /// <summary>Aufgenommen wird nur bei Bewegung samt Vor- und Nachlauf; ohne Vorlauf läuft der Stream nur während der Bewegung.</summary>
     Motion,
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildMap,
+	eventNeighbor,
 	mediaLength,
 	mergeRanges,
 	tickStep,
@@ -55,5 +56,15 @@ describe('Zeitleiste', () => {
 		expect(labels[0]).toBe(from);
 		expect(labels).toHaveLength(9);
 		expect(zoneOffset('Asia/Kolkata', from)).toBe(5.5 * 3_600_000);
+	});
+
+	it('springt zum vorherigen und nächsten Ereignis', () => {
+		const starts = [10_000, 50_000, 90_000];
+		expect(eventNeighbor(starts, 50_000, 1)).toBe(90_000);
+		expect(eventNeighbor(starts, 50_000, -1)).toBe(10_000);
+		// Kurz nach einem Sprung zurück: nicht am selben Ereignis hängen bleiben
+		expect(eventNeighbor(starts, 51_000, -1)).toBe(10_000);
+		expect(eventNeighbor(starts, 95_000, 1)).toBeNull();
+		expect(eventNeighbor([], 0, -1)).toBeNull();
 	});
 });

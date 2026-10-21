@@ -118,4 +118,28 @@ public class RetentionTests
         Assert.All(remaining, s => Assert.Equal(factory.RecordingsPath, s.StorageRoot));
         Assert.Equal(oldFiles.Count - remaining.Count, oldFiles.Count(f => !File.Exists(f)));
     }
+
+    [Fact]
+    public async Task Ereignisse_OhneAufnahmeWerdenGeloescht()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+        var id = await SeedAsync(factory, admin, hours: 10, quotaGb: 100, maxDays: null);
+        var oldest = (await SegmentsAsync(factory))[0].StartUtc;
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LittleSisterDbContext>();
+            // Lange vor der ältesten Aufnahme, kurz davor (Aufnahme begann verzögert), mittendrin
+            foreach (var start in new[] { oldest.AddHours(-3), oldest.AddSeconds(-10), oldest.AddHours(2) })
+                db.Events.Add(new LittleSister.Core.Events.CameraEvent { CameraId = id, Kind = "motion", StartUtc = start, EndUtc = start.AddSeconds(5) });
+            await db.SaveChangesAsync();
+        }
+
+        await factory.Services.GetRequiredService<RetentionService>().RunOnceAsync(CancellationToken.None);
+
+        using var check = factory.Services.CreateScope();
+        var remaining = await check.ServiceProvider.GetRequiredService<LittleSisterDbContext>().Events.OrderBy(e => e.StartUtc).ToListAsync();
+        Assert.Equal([oldest.AddSeconds(-10), oldest.AddHours(2)], remaining.Select(e => e.StartUtc));
+    }
 }
