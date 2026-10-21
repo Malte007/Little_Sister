@@ -128,12 +128,25 @@ Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg. Für Dock
 
 ### Fertiges Image von GitHub (ghcr.io)
 
-Nach jedem Merge auf `main` baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto:
+Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Normale Pushes und Merges bauen kein Image.
 
 ```
-ghcr.io/malte007/little_sister:latest      immer der neueste Stand von main
-ghcr.io/malte007/little_sister:0.1.0-ci.N  ein bestimmter CI-Lauf (N = Laufnummer)
+ghcr.io/malte007/little_sister:0.1.1       genau diese Version (Tag v0.1.1)
+ghcr.io/malte007/little_sister:0.1.2-test  Testversion (Tag mit Zusatz nach "-")
+ghcr.io/malte007/little_sister:latest      die neueste fertige Version (Tags ohne Zusatz)
 ```
+
+Eine Version veröffentlichen geht in Rider über **Git → New Tag…** (Name z. B. `v0.1.1`) und danach **Git → Push…** mit Haken bei **Push Tags**. Im Terminal (fish):
+
+```fish
+git tag v0.1.1
+git push Github v0.1.1
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `git tag v0.1.1` | markiert den aktuellen Commit als Version 0.1.1 |
+| `git push Github v0.1.1` | schickt den Tag zu GitHub (`Github` ist der Name deines Remotes); die CI baut dann das Image |
 
 Zu sehen ist es in deinem GitHub-Profil unter **Packages**. Weil das Repository privat ist, ist auch das Paket privat. Ein Server braucht daher eine Anmeldung mit einem Token, bevor er es herunterladen darf.
 
@@ -162,7 +175,7 @@ Die Anmeldung wird nur zum Herunterladen und für „Nach Updates suchen“ gebr
 | Feld | Wert | Hinweis |
 | --- | --- | --- |
 | Name | `little-sister` | |
-| Repository | `ghcr.io/malte007/little_sister:latest` | |
+| Repository | `ghcr.io/malte007/little_sister:latest` | neueste fertige Version; für eine Testversion z. B. `…:0.1.2-test` |
 | Netzwerktyp | `Host` | nötig für die ONVIF-Kamerasuche (Multicast) |
 | Erweiterte Ansicht → Zusätzliche Parameter | `--user 99:100` | läuft als Unraid-Standardbenutzer `nobody:users`, sonst fehlen Schreibrechte auf den Shares |
 | Pfad `/data` | `/mnt/user/appdata/little-sister` | Datenbank, Schlüssel, Sicherungen |
@@ -174,7 +187,7 @@ Mit Host-Netzwerk belegt Little Sister die Ports **8080** (Oberfläche), **8555 
 
 Danach `http://<unraid-ip>:8080` öffnen und die Einrichtung durchklicken; als Aufnahmeordner `/recordings` lassen.
 
-**4. Aktualisieren.** Nach einem Merge auf GitHub ist das neue Image nach einigen Minuten fertig (Reiter **Actions**). Dann auf Unraid unter **Docker → Nach Updates suchen** und beim Container **Update anwenden**. Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank nach `/data/backups` gesichert.
+**4. Aktualisieren.** Nach dem Push eines neuen Versions-Tags ist das Image nach einigen Minuten fertig (Reiter **Actions** auf GitHub). Dann auf Unraid unter **Docker → Nach Updates suchen** und beim Container **Update anwenden**. Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank nach `/data/backups` gesichert.
 
 ### Selbst bauen mit docker compose
 
@@ -299,7 +312,7 @@ dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/Little
 
 ## CI (GitHub und Gitea)
 
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Bei Pull Requests wird gebaut und getestet, auf `main` und bei Tags `v*` zusätzlich das Image veröffentlicht.
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Bei Pull Requests und auf `main` wird gebaut und getestet. Nur bei Versions-Tags `v*` wird zusätzlich das Docker-Image gebaut und veröffentlicht (siehe „Fertiges Image von GitHub“).
 
 Für Gitea unter *Repository → Einstellungen → Actions*:
 
