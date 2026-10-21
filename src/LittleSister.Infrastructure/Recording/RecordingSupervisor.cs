@@ -10,32 +10,25 @@ using Microsoft.Extensions.Options;
 
 namespace LittleSister.Infrastructure.Recording;
 
-/// <summary>Signal an die Aufnahme, die Kameraliste neu einzulesen (z. B. nach dem Speichern einer Kamera).</summary>
-public interface IRecordingControl
-{
-    void RequestReload();
-}
-
 /// <summary>
 /// Startet und stoppt für jede aktive Kamera einen eigenen <see cref="CameraRecorder"/>.
 /// Ändern sich Kameradaten, wird nur der betroffene Recorder neu gestartet.
 /// </summary>
 public sealed class RecordingSupervisor(
     IServiceScopeFactory scopes,
+    CameraChanges changes,
     ICameraInputFactory input,
     SegmentIndexer indexer,
     CameraStatusRegistry statuses,
     IOptions<LittleSisterOptions> options,
     TimeProvider time,
-    ILoggerFactory loggers) : BackgroundService, IRecordingControl
+    ILoggerFactory loggers) : BackgroundService
 {
     private readonly ILogger logger = loggers.CreateLogger<RecordingSupervisor>();
-    private readonly Channel<bool> reload = Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
+    private readonly ChannelReader<bool> reload = changes.Subscribe();
     private readonly Dictionary<Guid, Running> running = [];
 
     private sealed record Running(string Fingerprint, CancellationTokenSource Cts, Task Task);
-
-    public void RequestReload() => reload.Writer.TryWrite(true);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -53,13 +46,7 @@ public sealed class RecordingSupervisor(
                 }
 
                 // Auf Änderungen warten; spätestens alle 30 s abgleichen (z. B. nach der Ersteinrichtung)
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                timeout.CancelAfter(TimeSpan.FromSeconds(30));
-                try
-                {
-                    await reload.Reader.ReadAsync(timeout.Token);
-                }
-                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested) { }
+                await CameraChanges.WaitAsync(reload, TimeSpan.FromSeconds(30), stoppingToken);
             }
         }
         catch (OperationCanceledException) { }
@@ -121,5 +108,5 @@ public sealed class RecordingSupervisor(
 
     /// <summary>Alles, was einen Neustart des Recorders erfordert.</summary>
     private static string Fingerprint(Camera c, string root) =>
-        string.Join('|', root, c.MainStreamUrl, c.Username, c.ProtectedPassword);
+        string.Join('|', root, c.MainStreamUrl, c.Username, c.ProtectedPassword, c.Rotation);
 }

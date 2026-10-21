@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using LittleSister.Api.Live;
 using LittleSister.Api.Security;
 using LittleSister.Api.Storage;
 using LittleSister.Core.Security;
@@ -72,6 +73,10 @@ internal static class ApiServiceCollectionExtensions
         });
 
         services.AddSingleton<StoragePathChecker>();
+
+        // Kamerastatus live an die Oberfläche
+        services.AddSignalR();
+        services.AddHostedService<StatusBroadcaster>();
         return services;
     }
 }

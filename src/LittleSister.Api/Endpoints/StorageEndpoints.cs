@@ -2,6 +2,7 @@ using LittleSister.Api.Security;
 using LittleSister.Api.Storage;
 using LittleSister.Infrastructure.Recording;
 using LittleSister.Core.Settings;
+using LittleSister.Infrastructure;
 using LittleSister.Infrastructure.Data;
 using LittleSister.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +46,7 @@ internal static class StorageEndpoints
     /// bestehende bleiben im alten Ordner und werden dort weiter vom Ringspeicher verwaltet.
     /// </summary>
     private static async Task<IResult> Update(
-        StorageUpdate request, LittleSisterDbContext db, StoragePathChecker storage, IRecordingControl recording)
+        StorageUpdate request, LittleSisterDbContext db, StoragePathChecker storage, CameraChanges changes)
     {
         if (request.MinFreeGb < 0)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["minFreeGb"] = ["tooSmall"] });
@@ -70,7 +71,7 @@ internal static class StorageEndpoints
 
         // Recorder mit neuem Ordner neu starten; das laufende Segment wird vorher sauber abgeschlossen
         if (pathChanged)
-            recording.RequestReload();
+            changes.Notify();
         return Results.NoContent();
     }
 }

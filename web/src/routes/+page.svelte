@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { invalidate } from '$app/navigation';
 	import CameraCard from '#lib/components/CameraCard.svelte';
+	import LiveTile from '#lib/components/LiveTile.svelte';
 	import { i18n, t } from '#lib/i18n/index.svelte.js';
 	import type { PageProps } from './$types';
 
@@ -14,11 +15,17 @@
 	const isAdmin = $derived(data.user?.roles.includes('Admin') ?? false);
 	const role = $derived(isAdmin ? 'Admin' : 'Viewer');
 
-	// Kamerastatus regelmäßig auffrischen
+	// Status kommt live per SignalR; Kameraliste und Live-Zustand gelegentlich neu laden
 	onMount(() => {
-		const timer = setInterval(() => invalidate((url) => url.pathname === '/api/cameras'), 5000);
+		const timer = setInterval(
+			() => invalidate((url) => url.pathname === '/api/cameras' || url.pathname === '/api/live'),
+			30000
+		);
 		return () => clearInterval(timer);
 	});
+
+	// Startet go2rtc gerade noch, trotzdem schon Live-Kacheln zeigen (sie verbinden sich selbst neu)
+	const liveUsable = $derived(data.live.available || data.live.error === 'starting');
 </script>
 
 <section in:fly={{ y: 12, duration: 400 }}>
@@ -26,9 +33,16 @@
 	<p class="muted">{t('home.signedInAs', { role: t(`roles.${role}`) })}</p>
 
 	{#if data.cameras.length > 0}
-		<div class="grid">
+		{#if !liveUsable}
+			<p class="alert notice">{t(`live.${data.live.error ?? 'go2rtcFailed'}`)}</p>
+		{/if}
+		<div class="grid" class:live={liveUsable}>
 			{#each data.cameras as camera (camera.id)}
-				<CameraCard {camera} />
+				{#if liveUsable}
+					<LiveTile {camera} />
+				{:else}
+					<CameraCard {camera} />
+				{/if}
 			{/each}
 		</div>
 	{:else}
@@ -52,6 +66,12 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
 		gap: 1rem;
+	}
+	.grid.live {
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
+	}
+	.notice {
+		margin-top: 1.5rem;
 	}
 	.add {
 		margin-top: 1.5rem;

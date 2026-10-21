@@ -1,5 +1,5 @@
 # Little Sister starten:  docker compose up -d   →   http://<server>:8080
-# go2rtc für die Live-Ansicht kommt in Schritt 3 dazu.
+# go2rtc für die Live-Ansicht ist im Image enthalten und wird von Little Sister selbst gestartet.
 services:
   little-sister:
     image: ${LS_IMAGE:-ghcr.io/malte007/little_sister:latest}
@@ -7,7 +7,8 @@ services:
     container_name: little-sister
     restart: unless-stopped
     # Host-Netzwerk, damit die ONVIF-Kamerasuche (UDP-Multicast) funktioniert.
-    # Ohne Suche geht auch Bridge-Netzwerk: network_mode entfernen und "ports: [8080:8080]" setzen.
+    # Ohne Suche geht auch Bridge-Netzwerk: network_mode entfernen, Ports "8080:8080", "8555:8555/tcp"
+    # und "8555:8555/udp" freigeben und LittleSister__Live__WebRtcCandidates__0=<Server-IP>:8555 setzen.
     network_mode: host
     environment:
       TZ: ${TZ:-Europe/Berlin}

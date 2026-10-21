@@ -82,6 +82,20 @@ export interface SystemInfo {
 
 export type CameraState = 'Idle' | 'Connecting' | 'Recording' | 'Error';
 
+export interface CameraStatus {
+	state: CameraState;
+	sinceUtc: string;
+	lastError: string | null;
+	restarts: number;
+	lastSegmentUtc: string | null;
+}
+
+/** Ob die Live-Ansicht bereitsteht; error z. B. "go2rtcMissing". */
+export interface LiveState {
+	available: boolean;
+	error: string | null;
+}
+
 export interface Camera {
 	id: string;
 	name: string;
@@ -95,13 +109,9 @@ export interface Camera {
 	recordingEnabled: boolean;
 	quotaGb: number;
 	maxRetentionDays: number | null;
-	status: {
-		state: CameraState;
-		sinceUtc: string;
-		lastError: string | null;
-		restarts: number;
-		lastSegmentUtc: string | null;
-	};
+	/** Drehung im Uhrzeigersinn: 0, 90, 180 oder 270 */
+	rotation: number;
+	status: CameraStatus;
 	storage: {
 		usedBytes: number;
 		segmentCount: number;
@@ -124,6 +134,7 @@ export interface CameraInput {
 	recordingEnabled: boolean;
 	quotaGb: number;
 	maxRetentionDays: number | null;
+	rotation: number;
 }
 
 export interface DiscoveredDevice {

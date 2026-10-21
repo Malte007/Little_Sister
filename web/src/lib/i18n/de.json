@@ -104,7 +104,8 @@
 		"streamUnreachable": "Der Stream ist nicht erreichbar.",
 		"streamTimeout": "Die Kamera antwortet nicht rechtzeitig.",
 		"noVideo": "Der Stream enthält kein Video.",
-		"ffprobeMissing": "ffprobe ist auf dem Server nicht installiert."
+		"ffprobeMissing": "ffprobe ist auf dem Server nicht installiert.",
+		"invalidRotation": "Bitte 0, 90, 180 oder 270 Grad wählen."
 	},
 	"status": {
 		"Idle": "Aus",
@@ -152,8 +153,8 @@
 		"passwordKeep": "Leer lassen, um das gespeicherte Passwort zu behalten",
 		"test": "Verbindung testen",
 		"testing": "Teste …",
-		"testOk": "Verbindung klappt: {codec}, {width} × {height}",
-		"hevcHint": "H.265 wird ohne Umwandlung aufgenommen. Für die Live-Ansicht im Browser nutzt Little Sister den Substream.",
+		"testOk": "{codec}, {width} × {height}",
+		"hevcHint": "H.265 wird ohne Umwandlung aufgenommen. Für die Live-Ansicht im Browser bitte einen H.264-Substream eintragen, H.265 können viele Browser nicht abspielen.",
 		"recording": "Daueraufnahme",
 		"recordingHint": "Nimmt rund um die Uhr auf. Aufnahme bei Bewegung folgt später.",
 		"quota": "Speicherkontingent (GB)",
@@ -164,7 +165,12 @@
 		"delete": "Kamera entfernen",
 		"deleteConfirm": "{name} wirklich entfernen?",
 		"deleteRecordings": "Auch alle Aufnahmen dieser Kamera löschen?",
-		"back": "Zurück zur Auswahl"
+		"back": "Zurück zur Auswahl",
+		"mainShort": "Hauptstream",
+		"subShort": "Substream",
+		"rotation": "Bild drehen",
+		"rotationNone": "nicht gedreht",
+		"rotationHint": "Im Uhrzeigersinn. Dreht nur die Anzeige, ohne Rechenaufwand; Aufnahmen werden beim Abspielen gedreht."
 	},
 	"storage": {
 		"title": "Speicher",
@@ -175,5 +181,20 @@
 		"pathHint": "Hier legt Little Sister neue Aufnahmen ab.",
 		"pathChangeHint": "Neue Aufnahmen landen im neuen Ordner. Bestehende bleiben im bisherigen Ordner und werden dort weiter verwaltet und gelöscht.",
 		"saved": "Gespeichert"
+	},
+	"live": {
+		"connecting": "Verbindet …",
+		"cameraError": "Kamera nicht erreichbar",
+		"quality": "Auflösung",
+		"sd": "Substream",
+		"hd": "Volle Auflösung",
+		"audioOn": "Ton an",
+		"audioOff": "Ton aus",
+		"starting": "Die Live-Ansicht startet gerade.",
+		"go2rtcMissing": "Die Live-Ansicht ist nicht verfügbar: go2rtc wurde nicht gefunden. Die Aufnahme läuft trotzdem weiter.",
+		"go2rtcFailed": "Die Live-Ansicht ist gerade gestört und startet neu. Die Aufnahme läuft trotzdem weiter.",
+		"codecUnsupported": "Dieser Browser kann {codec} nicht abspielen.",
+		"fullscreen": "Vollbild",
+		"fullscreenHint": "Doppelklick für Vollbild"
 	}
 }

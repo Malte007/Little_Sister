@@ -1,17 +1,25 @@
 <script lang="ts">
 	// Rahmen der angemeldeten Oberfläche: Navigation oben, Inhalt darunter
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { api, type CurrentUser } from '#lib/api.js';
 	import { t } from '#lib/i18n/index.svelte.js';
+	import { connectStatus, disconnectStatus } from '#lib/live/status.svelte.js';
 	import LanguageSwitcher from './LanguageSwitcher.svelte';
 	import Logo from './Logo.svelte';
 
 	let { user, children }: { user: CurrentUser; children: Snippet } = $props();
 	const isAdmin = $derived(user.roles.includes('Admin'));
 
+	// Statusmeldungen der Kameras empfangen, solange jemand angemeldet ist
+	onMount(() => {
+		connectStatus();
+		return disconnectStatus;
+	});
+
 	async function logout() {
+		disconnectStatus();
 		await api('/api/auth/logout', { method: 'POST' });
 		await goto('/login');
 		await invalidateAll();

@@ -1,4 +1,5 @@
 using LittleSister.Infrastructure.Data;
+using LittleSister.Infrastructure.Live;
 using LittleSister.Infrastructure.Onvif;
 using LittleSister.Infrastructure.Recording;
 using LittleSister.Infrastructure.Security;
@@ -36,6 +37,7 @@ public static class DependencyInjection
 
         services.AddScoped<DatabaseMigrator>();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<CameraChanges>();
 
         // Kameras und ONVIF
         services.AddSingleton<CameraCredentialProtector>();
@@ -48,11 +50,20 @@ public static class DependencyInjection
         services.AddSingleton<SegmentIndexer>();
         services.AddSingleton<ICameraInputFactory, RtspInputFactory>();
         services.AddSingleton<RecordingSupervisor>();
-        services.AddSingleton<IRecordingControl>(sp => sp.GetRequiredService<RecordingSupervisor>());
         services.AddHostedService(sp => sp.GetRequiredService<RecordingSupervisor>());
         services.AddSingleton<IFreeSpaceProvider, DriveFreeSpaceProvider>();
         services.AddSingleton<RetentionService>();
         services.AddHostedService(sp => sp.GetRequiredService<RetentionService>());
+
+        // Live-Ansicht: go2rtc als Kindprozess, angesprochen nur über 127.0.0.1
+        services.AddSingleton<LiveStatus>();
+        services.AddSingleton<ILiveSourceFactory, RtspLiveSourceFactory>();
+        services.AddSingleton(_ => new Go2rtcClient(new HttpClient
+        {
+            BaseAddress = new Uri($"http://127.0.0.1:{options.Live.ApiPort}/"),
+            Timeout = TimeSpan.FromSeconds(15),
+        }));
+        services.AddHostedService<LiveSupervisor>();
         return services;
     }
 }

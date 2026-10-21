@@ -27,19 +27,33 @@ public sealed class CameraStatusRegistry(TimeProvider time)
 {
     private readonly ConcurrentDictionary<Guid, CameraStatus> statuses = new();
 
+    /// <summary>Wird nach jeder Änderung aufgerufen (null = Kamera entfernt), z. B. für die Live-Meldung an die Oberfläche.</summary>
+    public event Action<Guid, CameraStatus?>? Changed;
+
     public CameraStatus Get(Guid cameraId) =>
         statuses.TryGetValue(cameraId, out var status) ? status : new CameraStatus(CameraState.Idle, time.GetUtcNow());
 
     /// <summary>Ändert den Zustand; der Zeitpunkt "seit" bleibt erhalten, solange der Zustand gleich bleibt.</summary>
-    public void Update(Guid cameraId, Func<CameraStatus, CameraStatus> update) =>
-        statuses.AddOrUpdate(
+    public void Update(Guid cameraId, Func<CameraStatus, CameraStatus> update)
+    {
+        var changed = true;
+        var status = statuses.AddOrUpdate(
             cameraId,
             _ => update(new CameraStatus(CameraState.Idle, time.GetUtcNow())),
             (_, old) =>
             {
                 var updated = update(old);
-                return updated.State == old.State ? updated with { SinceUtc = old.SinceUtc } : updated with { SinceUtc = time.GetUtcNow() };
+                updated = updated.State == old.State ? updated with { SinceUtc = old.SinceUtc } : updated with { SinceUtc = time.GetUtcNow() };
+                changed = updated != old;
+                return updated;
             });
+        if (changed)
+            Changed?.Invoke(cameraId, status);
+    }
 
-    public void Remove(Guid cameraId) => statuses.TryRemove(cameraId, out _);
+    public void Remove(Guid cameraId)
+    {
+        if (statuses.TryRemove(cameraId, out _))
+            Changed?.Invoke(cameraId, null);
+    }
 }

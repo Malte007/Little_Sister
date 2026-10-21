@@ -22,6 +22,8 @@ public sealed class LittleSisterOptions
 
     public RecordingOptions Recording { get; set; } = new();
 
+    public LiveOptions Live { get; set; } = new();
+
     public string GetFullKeysPath() => Path.GetFullPath(KeysPath ?? Path.Combine(DataPath, "keys"));
 
     /// <summary>Liefert den Datenordner als absoluten Pfad.</summary>
@@ -50,4 +52,20 @@ public sealed class RecordingOptions
 
     /// <summary>Wie oft der Ringspeicher Kontingente und Freispeicher prüft.</summary>
     public int RetentionIntervalSeconds { get; set; } = 60;
+}
+
+/// <summary>Live-Ansicht über go2rtc, das Little Sister selbst startet.</summary>
+public sealed class LiveOptions
+{
+    /// <summary>Pfad zur go2rtc-Programmdatei; fehlt sie, ist die Live-Ansicht abgeschaltet.</summary>
+    public string Go2rtcPath { get; set; } = "go2rtc";
+
+    /// <summary>Port der go2rtc-API; nur auf 127.0.0.1 erreichbar, der Browser geht immer über Little Sister.</summary>
+    public int ApiPort { get; set; } = 1984;
+
+    /// <summary>Port für WebRTC (TCP und UDP); muss vom Browser aus erreichbar sein.</summary>
+    public int WebRtcPort { get; set; } = 8555;
+
+    /// <summary>Zusätzliche WebRTC-Adressen, z. B. "192.168.1.10:8555" hinter NAT oder Docker-Bridge.</summary>
+    public List<string> WebRtcCandidates { get; set; } = [];
 }

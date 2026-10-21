@@ -3,11 +3,13 @@
 	import type { Camera } from '#lib/api.js';
 	import { formatBytes, formatDays } from '#lib/format.js';
 	import { i18n, t } from '#lib/i18n/index.svelte.js';
+	import { statusOf } from '#lib/live/status.svelte.js';
 	import StatusPill from './StatusPill.svelte';
 	import StorageBar from './StorageBar.svelte';
 
 	let { camera, editable = false }: { camera: Camera; editable?: boolean } = $props();
 
+	const status = $derived(statusOf(camera));
 	const quotaBytes = $derived(camera.quotaGb * 1024 ** 3);
 	const days = $derived(formatDays(camera.storage.estimatedDays, i18n.language));
 	const time = $derived(
@@ -15,9 +17,9 @@
 	);
 	const statusTitle = $derived(
 		[
-			t('status.since', { time: time.format(new Date(camera.status.sinceUtc)) }),
-			camera.status.restarts > 0 ? t('status.restarts', { count: camera.status.restarts }) : '',
-			camera.status.lastError ? t('status.lastError', { error: camera.status.lastError }) : ''
+			t('status.since', { time: time.format(new Date(status.sinceUtc)) }),
+			status.restarts > 0 ? t('status.restarts', { count: status.restarts }) : '',
+			status.lastError ? t('status.lastError', { error: status.lastError }) : ''
 		]
 			.filter(Boolean)
 			.join(' · ')
@@ -32,11 +34,11 @@
 				<p class="muted small">{[camera.manufacturer, camera.model].filter(Boolean).join(' ')}</p>
 			{/if}
 		</div>
-		<StatusPill state={camera.status.state} title={statusTitle} />
+		<StatusPill state={status.state} title={statusTitle} />
 	</div>
 
-	{#if camera.status.state === 'Error' && camera.status.lastError}
-		<p class="error small">{camera.status.lastError}</p>
+	{#if status.state === 'Error' && status.lastError}
+		<p class="error small">{status.lastError}</p>
 	{/if}
 
 	<StorageBar

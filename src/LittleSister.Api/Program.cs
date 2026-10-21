@@ -26,6 +26,7 @@ if (app.Environment.IsDevelopment())
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.UseWebSockets();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -40,6 +41,7 @@ api.MapSystemEndpoints();
 api.MapCameraEndpoints();
 api.MapOnvifEndpoints();
 api.MapStorageEndpoints();
+api.MapLiveEndpoints();
 
 // Unbekannte API-Pfade liefern 404 statt der Oberfläche
 api.MapFallback(() => Results.NotFound());

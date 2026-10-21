@@ -22,14 +22,19 @@ RUN dotnet publish src/LittleSister.Api/LittleSister.Api.csproj \
       --configuration Release --no-restore --output /app \
       -p:Version="$VERSION"
 
-# 3) Schlankes Laufzeit-Image mit ffmpeg für die Aufnahme
+# 3) go2rtc für die Live-Ansicht (MIT-Lizenz); Version hier und in der CI gemeinsam anheben
+FROM alexxit/go2rtc:1.9.14 AS go2rtc
+
+# 4) Schlankes Laufzeit-Image mit ffmpeg für die Aufnahme und go2rtc für die Live-Ansicht
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
+COPY --from=go2rtc /usr/local/bin/go2rtc /usr/local/bin/go2rtc
 WORKDIR /app
 COPY --from=backend /app ./
 COPY --from=web /src/web/build ./wwwroot
+COPY LICENSE THIRD-PARTY-NOTICES ./
 
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     LittleSister__DataPath=/data \
@@ -40,5 +45,6 @@ RUN mkdir -p /data /recordings && chown app:app /data /recordings
 VOLUME ["/data", "/recordings"]
 
 USER app
-EXPOSE 8080
+# 8080: Weboberfläche und API, 8555 (TCP+UDP): WebRTC für die Live-Ansicht
+EXPOSE 8080 8555/tcp 8555/udp
 ENTRYPOINT ["dotnet", "LittleSister.Api.dll"]
