@@ -128,7 +128,7 @@ Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg. Für Dock
 
 ### Fertiges Image von GitHub (ghcr.io)
 
-Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Normale Pushes, Pull Requests und Merges starten die CI gar nicht.
+Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Normale Commits auf `main` und Pull Requests werden nur getestet, sie bauen kein Image.
 
 ```
 ghcr.io/malte007/little_sister:0.1.1       genau diese Version (Tag v0.1.1)
@@ -312,7 +312,7 @@ dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/Little
 
 ## CI (GitHub und Gitea)
 
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Sie startet nur, wenn ein Versions-Tag `v*` gepusht wird: Dann wird gebaut, getestet und das Docker-Image veröffentlicht (siehe „Fertiges Image von GitHub“). Ohne Tag lässt sie sich unter GitHub → Actions → CI → „Run workflow“ von Hand starten; dann wird nur gebaut und getestet. Vor einem Merge daher lokal testen (siehe „Bauen und Testen wie die CI“).
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Bei jedem Commit auf `main` und bei Pull Requests nach `main` wird gebaut und getestet. Nur wenn ein Versions-Tag `v*` gepusht wird, entsteht zusätzlich das Docker-Image und wird veröffentlicht (siehe „Fertiges Image von GitHub“). Von Hand startest du die Tests unter GitHub → Actions → CI → „Run workflow“.
 
 Für Gitea unter *Repository → Einstellungen → Actions*:
 
