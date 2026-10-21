@@ -1,4 +1,5 @@
 using LittleSister.Core.Cameras;
+using LittleSister.Core.Events;
 using LittleSister.Core.Recording;
 using LittleSister.Core.Settings;
 using LittleSister.Infrastructure.Identity;
@@ -16,6 +17,7 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public DbSet<Camera> Cameras => Set<Camera>();
     public DbSet<Segment> Segments => Set<Segment>();
+    public DbSet<CameraEvent> Events => Set<CameraEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -42,6 +44,9 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
             e.Property(c => c.Manufacturer).HasMaxLength(200);
             e.Property(c => c.Model).HasMaxLength(200);
             e.Ignore(c => c.QuotaBytes);
+            e.Ignore(c => c.RecordingEnabled);
+            // Als Text, damit die Datenbank lesbar bleibt
+            e.Property(c => c.RecordingMode).HasConversion<string>().HasMaxLength(20);
         });
 
         builder.Entity<Segment>(e =>
@@ -54,6 +59,14 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
             e.HasIndex(s => new { s.CameraId, s.StartUtc });
             e.HasIndex(s => s.StartUtc);
             e.HasOne<Camera>().WithMany().HasForeignKey(s => s.CameraId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CameraEvent>(e =>
+        {
+            e.ToTable("Events");
+            e.Property(x => x.Kind).HasMaxLength(50);
+            e.HasIndex(x => new { x.CameraId, x.StartUtc });
+            e.HasOne<Camera>().WithMany().HasForeignKey(x => x.CameraId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

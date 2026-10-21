@@ -1,4 +1,5 @@
 using LittleSister.Infrastructure.Data;
+using LittleSister.Infrastructure.Events;
 using LittleSister.Infrastructure.Live;
 using LittleSister.Infrastructure.Onvif;
 using LittleSister.Infrastructure.Playback;
@@ -58,6 +59,12 @@ public static class DependencyInjection
         services.AddSingleton<IFreeSpaceProvider, DriveFreeSpaceProvider>();
         services.AddSingleton<RetentionService>();
         services.AddHostedService(sp => sp.GetRequiredService<RetentionService>());
+
+        // Bewegung: ONVIF-Ereignisse der Kameras als Ereignisse speichern
+        services.AddSingleton<MotionSignals>();
+        services.AddSingleton<IMotionSource, OnvifMotionSource>();
+        services.AddSingleton<MotionEventService>();
+        services.AddHostedService(sp => sp.GetRequiredService<MotionEventService>());
 
         // Live-Ansicht: go2rtc als Kindprozess, angesprochen nur über 127.0.0.1
         services.AddSingleton<LiveStatus>();

@@ -83,6 +83,18 @@ public sealed class RetentionService(
 
         if (deleted > 0)
             logger.LogInformation("Ringspeicher: {Count} Segment(e) gelöscht", deleted);
+
+        // 4) Ereignisse ohne Aufnahme mehr dazu: älter als die älteste Aufnahme oder die maximale Aufbewahrung
+        foreach (var camera in await db.Cameras.AsNoTracking().ToListAsync(ct))
+        {
+            var oldest = await db.Segments.Where(s => s.CameraId == camera.Id)
+                .OrderBy(s => s.StartUtc).Select(s => (DateTimeOffset?)s.StartUtc).FirstOrDefaultAsync(ct);
+            var cutoff = RetentionPolicy.RetentionCutoff(camera.MaxRetentionDays, now);
+            if ((oldest, cutoff) is (null, null))
+                continue;
+            var before = oldest is { } o && cutoff is { } c ? (o > c ? o : c) : (oldest ?? cutoff)!.Value;
+            await db.Events.Where(e => e.CameraId == camera.Id && e.EndUtc != null && e.EndUtc < before).ExecuteDeleteAsync(ct);
+        }
         return deleted;
     }
 

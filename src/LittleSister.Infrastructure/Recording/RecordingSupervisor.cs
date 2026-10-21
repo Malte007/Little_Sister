@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using LittleSister.Core.Cameras;
 using LittleSister.Core.Settings;
 using LittleSister.Infrastructure.Data;
+using LittleSister.Infrastructure.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,6 +21,7 @@ public sealed class RecordingSupervisor(
     ICameraInputFactory input,
     SegmentIndexer indexer,
     CameraStatusRegistry statuses,
+    MotionSignals motion,
     IOptions<LittleSisterOptions> options,
     TimeProvider time,
     ILoggerFactory loggers) : BackgroundService
@@ -65,7 +67,7 @@ public sealed class RecordingSupervisor(
         var root = settings?.RecordingsPath;
         var cameras = string.IsNullOrEmpty(root)
             ? []
-            : await db.Cameras.AsNoTracking().Where(c => c.RecordingEnabled).ToListAsync(ct);
+            : await db.Cameras.AsNoTracking().Where(c => c.RecordingMode != RecordingMode.Off).ToListAsync(ct);
 
         var wanted = cameras.ToDictionary(c => c.Id, c => (Camera: c, Fingerprint: Fingerprint(c, root!)));
 
@@ -78,7 +80,7 @@ public sealed class RecordingSupervisor(
                 continue;
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var recorder = new CameraRecorder(camera, root!, options.Value.Recording, input, indexer, statuses, time,
+            var recorder = new CameraRecorder(camera, root!, options.Value.Recording, input, indexer, statuses, motion, time,
                 loggers.CreateLogger<CameraRecorder>());
             running[id] = new Running(fingerprint, cts, Task.Run(() => recorder.RunAsync(cts.Token), CancellationToken.None));
             logger.LogInformation("Aufnahme gestartet: {Camera}", camera.Name);
@@ -108,5 +110,5 @@ public sealed class RecordingSupervisor(
 
     /// <summary>Alles, was einen Neustart des Recorders erfordert.</summary>
     private static string Fingerprint(Camera c, string root) =>
-        string.Join('|', root, c.MainStreamUrl, c.Username, c.ProtectedPassword, c.Rotation);
+        string.Join('|', root, c.MainStreamUrl, c.Username, c.ProtectedPassword, c.Rotation, c.RecordingMode, c.PreRollSeconds, c.PostRollSeconds);
 }

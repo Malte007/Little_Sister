@@ -51,14 +51,22 @@ namespace LittleSister.Infrastructure.Data.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("PostRollSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PreRollSeconds")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ProtectedPassword")
                         .HasColumnType("TEXT");
 
                     b.Property<double>("QuotaGb")
                         .HasColumnType("REAL");
 
-                    b.Property<bool>("RecordingEnabled")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("RecordingMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Rotation")
                         .HasColumnType("INTEGER");
@@ -74,6 +82,33 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Cameras", (string)null);
+                });
+
+            modelBuilder.Entity("LittleSister.Core.Events.CameraEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("CameraId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EndUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("StartUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CameraId", "StartUtc");
+
+                    b.ToTable("Events", (string)null);
                 });
 
             modelBuilder.Entity("LittleSister.Core.Recording.Segment", b =>
@@ -347,6 +382,15 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("LittleSister.Core.Events.CameraEvent", b =>
+                {
+                    b.HasOne("LittleSister.Core.Cameras.Camera", null)
+                        .WithMany()
+                        .HasForeignKey("CameraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("LittleSister.Core.Recording.Segment", b =>

@@ -8,7 +8,8 @@ using LittleSister.Core.Cameras;
 namespace LittleSister.Infrastructure.Onvif;
 
 /// <summary>
-/// Schlanker ONVIF-Client (SOAP 1.2) für die Einrichtung: Geräteinfo, Profile und RTSP-Adressen.
+/// Schlanker ONVIF-Client (SOAP 1.2): Geräteinfo, Profile und RTSP-Adressen für die Einrichtung,
+/// außerdem Ereignisse (Bewegung) per PullPoint-Abonnement.
 /// Authentifiziert per WS-Security UsernameToken (Digest); HTTP-Digest übernimmt der HttpClientHandler.
 /// </summary>
 public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> handlerFactory, TimeProvider time)
@@ -17,6 +18,9 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
     private const string DeviceNs = "http://www.onvif.org/ver10/device/wsdl";
     private const string MediaNs = "http://www.onvif.org/ver10/media/wsdl";
     private const string SchemaNs = "http://www.onvif.org/ver10/schema";
+    private const string EventsNs = "http://www.onvif.org/ver10/events/wsdl";
+    private const string NotificationNs = "http://docs.oasis-open.org/wsn/b-2";
+    private const string AddressingNs = "http://www.w3.org/2005/08/addressing";
 
     public OnvifClient(TimeProvider time)
         : this(credential => new HttpClientHandler { Credentials = credential, PreAuthenticate = false }, time) { }
@@ -72,6 +76,109 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
         return new OnvifProbeResult(device, profiles, main, sub == main ? null : sub, offset);
     }
 
+    /// <summary>
+    /// Meldet sich für Ereignisse der Kamera an (PullPoint). Abgeholt wird mit
+    /// <see cref="OnvifEventSubscription.PullAsync"/>; das Abonnement muss regelmäßig verlängert werden.
+    /// </summary>
+    public async Task<OnvifEventSubscription> SubscribeEventsAsync(string deviceAddress, string? username, string? password, CancellationToken ct = default)
+    {
+        if (!Uri.TryCreate(deviceAddress, UriKind.Absolute, out var deviceUri) || deviceUri.Scheme is not ("http" or "https"))
+            throw new OnvifException("onvifInvalidAddress", "Ungültige ONVIF-Adresse.");
+
+        var credential = string.IsNullOrEmpty(username) ? null : new NetworkCredential(username, password);
+        // Abholen wartet bis zu PullTimeout auf neue Meldungen; die Verbindung braucht etwas Luft darüber
+        var http = new HttpClient(handlerFactory(credential)) { Timeout = OnvifEventSubscription.PullTimeout + TimeSpan.FromSeconds(20) };
+        try
+        {
+            var offset = await GetClockOffsetAsync(http, deviceUri, ct);
+            var auth = credential is null ? null : new Auth(username!, password ?? "", offset);
+
+            var caps = await SendAsync(http, deviceUri, $"<GetCapabilities xmlns=\"{DeviceNs}\"><Category>Events</Category></GetCapabilities>", auth, ct);
+            var eventsAddress = caps.Descendants().FirstOrDefault(e => e.Name.LocalName == "Events")?
+                .Elements().FirstOrDefault(e => e.Name.LocalName == "XAddr")?.Value.Trim();
+            if (!Uri.TryCreate(eventsAddress, UriKind.Absolute, out var eventsUri))
+                throw new OnvifException("onvifNoEvents", "Die Kamera bietet keine ONVIF-Ereignisse an.");
+
+            var body = $"<CreatePullPointSubscription xmlns=\"{EventsNs}\"><InitialTerminationTime>{OnvifEventSubscription.Lifetime}</InitialTerminationTime></CreatePullPointSubscription>";
+            var response = await SendAsync(http, eventsUri, body, auth, ct,
+                Addressing($"{EventsNs}/EventPortType/CreatePullPointSubscriptionRequest", eventsUri.ToString()));
+            var reference = response.Descendants().FirstOrDefault(e => e.Name.LocalName == "SubscriptionReference")
+                ?? throw new OnvifException("onvifInvalidResponse", "Antwort ohne Abonnement.");
+            var address = reference.Elements().FirstOrDefault(e => e.Name.LocalName == "Address")?.Value.Trim();
+            if (!Uri.TryCreate(address, UriKind.Absolute, out var subscriptionUri))
+                throw new OnvifException("onvifInvalidResponse", "Abonnement ohne Adresse.");
+
+            // Manche Kameras erwarten ihre Referenzparameter in jeder weiteren Anfrage zurück
+            var parameters = reference.Elements().FirstOrDefault(e => e.Name.LocalName == "ReferenceParameters")?.Elements()
+                .Select(p =>
+                {
+                    p.SetAttributeValue(XName.Get("IsReferenceParameter", AddressingNs), "true");
+                    return p.ToString(SaveOptions.DisableFormatting);
+                })
+                .ToList() ?? [];
+
+            return new OnvifEventSubscription(this, http, subscriptionUri, string.Concat(parameters), auth);
+        }
+        catch
+        {
+            http.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>Holt neue Ereignisse ab; wartet höchstens <see cref="OnvifEventSubscription.PullTimeout"/>.</summary>
+    internal async Task<IReadOnlyList<OnvifEvent>> PullAsync(OnvifEventSubscription s, CancellationToken ct)
+    {
+        var timeout = System.Xml.XmlConvert.ToString(OnvifEventSubscription.PullTimeout);
+        var response = await SendAsync(s.Http, s.Address,
+            $"<PullMessages xmlns=\"{EventsNs}\"><Timeout>{timeout}</Timeout><MessageLimit>64</MessageLimit></PullMessages>",
+            s.Auth, ct, Addressing($"{EventsNs}/PullPointSubscription/PullMessagesRequest", s.Address.ToString(), s.ReferenceParameters));
+        return ParseNotifications(response);
+    }
+
+    internal Task RenewAsync(OnvifEventSubscription s, CancellationToken ct) =>
+        SendAsync(s.Http, s.Address,
+            $"<Renew xmlns=\"{NotificationNs}\"><TerminationTime>{OnvifEventSubscription.Lifetime}</TerminationTime></Renew>",
+            s.Auth, ct, Addressing("http://docs.oasis-open.org/wsn/bw-2/SubscriptionManager/RenewRequest", s.Address.ToString(), s.ReferenceParameters));
+
+    internal Task UnsubscribeAsync(OnvifEventSubscription s, CancellationToken ct) =>
+        SendAsync(s.Http, s.Address, $"<Unsubscribe xmlns=\"{NotificationNs}\"/>",
+            s.Auth, ct, Addressing("http://docs.oasis-open.org/wsn/bw-2/SubscriptionManager/UnsubscribeRequest", s.Address.ToString(), s.ReferenceParameters));
+
+    /// <summary>Liest die Meldungen aus einer PullMessages-Antwort: Thema, Quelle und Zustand (z. B. IsMotion).</summary>
+    internal static IReadOnlyList<OnvifEvent> ParseNotifications(XElement body)
+    {
+        var result = new List<OnvifEvent>();
+        foreach (var notification in body.Descendants().Where(e => e.Name.LocalName == "NotificationMessage"))
+        {
+            var topic = notification.Elements().FirstOrDefault(e => e.Name.LocalName == "Topic")?.Value.Trim() ?? "";
+            var message = notification.Descendants().FirstOrDefault(e => e.Name.LocalName == "Message" && e.Attribute("UtcTime") is not null);
+            Dictionary<string, string> Items(string section) =>
+                message?.Elements().FirstOrDefault(e => e.Name.LocalName == section)?
+                    .Elements().Where(e => e.Name.LocalName == "SimpleItem")
+                    .GroupBy(e => e.Attribute("Name")?.Value ?? "")
+                    .ToDictionary(g => g.Key, g => g.First().Attribute("Value")?.Value ?? "") ?? [];
+
+            var source = string.Join(",", Items("Source").Select(kv => $"{kv.Key}={kv.Value}"));
+            // Zustand: IsMotion (Bewegungserkennung), State (Alarm), sonst der erste Wert
+            var data = Items("Data");
+            var value = data.TryGetValue("IsMotion", out var m) ? m : data.TryGetValue("State", out var st) ? st : data.Values.FirstOrDefault();
+            bool? active = value?.Trim().ToLowerInvariant() switch
+            {
+                "true" or "1" => true,
+                "false" or "0" => false,
+                _ => null,
+            };
+            result.Add(new OnvifEvent(topic, source, active));
+        }
+        return result;
+    }
+
+    /// <summary>WS-Addressing-Kopf, den PullPoint-Abonnements verlangen.</summary>
+    private static string Addressing(string action, string to, string referenceParameters = "") =>
+        $"<wsa:Action xmlns:wsa=\"{AddressingNs}\">{action}</wsa:Action>"
+        + $"<wsa:To xmlns:wsa=\"{AddressingNs}\">{System.Security.SecurityElement.Escape(to)}</wsa:To>{referenceParameters}";
+
     private async Task<string?> GetStreamUriAsync(HttpClient http, Uri mediaUri, string token, Auth? auth, CancellationToken ct)
     {
         var body = $"""
@@ -109,11 +216,11 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
         }
     }
 
-    private async Task<XElement> SendAsync(HttpClient http, Uri uri, string body, Auth? auth, CancellationToken ct)
+    private async Task<XElement> SendAsync(HttpClient http, Uri uri, string body, Auth? auth, CancellationToken ct, string extraHeader = "")
     {
         var envelope = $"""
             <?xml version="1.0" encoding="UTF-8"?>
-            <s:Envelope xmlns:s="{Soap}"><s:Header>{auth?.ToSecurityHeader(time)}</s:Header><s:Body>{body}</s:Body></s:Envelope>
+            <s:Envelope xmlns:s="{Soap}"><s:Header>{extraHeader}{auth?.ToSecurityHeader(time)}</s:Header><s:Body>{body}</s:Body></s:Envelope>
             """;
 
         HttpResponseMessage response;
@@ -160,7 +267,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
         int.TryParse(parent?.Elements().FirstOrDefault(e => e.Name.LocalName == localName)?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : 0;
 
     /// <summary>WS-Security UsernameToken mit Passwort-Digest = Base64(SHA1(Nonce + Created + Passwort)).</summary>
-    internal sealed record Auth(string Username, string Password, TimeSpan ClockOffset)
+    public sealed record Auth(string Username, string Password, TimeSpan ClockOffset)
     {
         public string ToSecurityHeader(TimeProvider time)
         {

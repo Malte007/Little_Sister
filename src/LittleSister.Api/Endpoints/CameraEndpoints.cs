@@ -26,6 +26,8 @@ internal static class CameraEndpoints
     }
 
     /// <summary>Eingaben beim Anlegen/Ändern. Passwort null beim Ändern = unverändert lassen.</summary>
+    /// <param name="RecordingEnabled">Ältere Form: nur ohne <paramref name="RecordingMode"/> ausgewertet (an = Dauerhaft).</param>
+    /// <param name="RecordingMode">"Off", "Continuous" oder "Motion".</param>
     internal sealed record CameraRequest(
         string Name,
         string MainStreamUrl,
@@ -38,20 +40,36 @@ internal static class CameraEndpoints
         bool RecordingEnabled,
         double QuotaGb,
         int? MaxRetentionDays,
-        int Rotation = 0);
+        int Rotation = 0,
+        string? RecordingMode = null,
+        int PreRollSeconds = 10,
+        int PostRollSeconds = 30)
+    {
+        /// <summary>Gewählter Modus; null bei unbekanntem Wert.</summary>
+        public RecordingMode? Mode => RecordingMode is null
+            ? RecordingEnabled ? Core.Cameras.RecordingMode.Continuous : Core.Cameras.RecordingMode.Off
+            : Enum.GetValues<RecordingMode>().Cast<RecordingMode?>()
+                .FirstOrDefault(m => m.ToString()!.Equals(RecordingMode, StringComparison.OrdinalIgnoreCase));
+    }
 
     internal sealed record StorageUsage(long UsedBytes, int SegmentCount, DateTimeOffset? OldestUtc, DateTimeOffset? NewestUtc, double? EstimatedDays);
 
-    internal sealed record CameraStatusDto(string State, DateTimeOffset SinceUtc, string? LastError, int Restarts, DateTimeOffset? LastSegmentUtc)
+    /// <param name="Events">Verbindung zu den ONVIF-Ereignissen: None, Connecting, Connected, Error.</param>
+    /// <param name="Motion">Meldet die Kamera gerade Bewegung?</param>
+    internal sealed record CameraStatusDto(
+        string State, DateTimeOffset SinceUtc, string? LastError, int Restarts, DateTimeOffset? LastSegmentUtc,
+        string Events, string? EventError, bool Motion, DateTimeOffset? LastMotionUtc)
     {
-        public static CameraStatusDto From(CameraStatus s) => new(s.State.ToString(), s.SinceUtc, s.LastError, s.Restarts, s.LastSegmentUtc);
+        public static CameraStatusDto From(CameraStatus s) => new(
+            s.State.ToString(), s.SinceUtc, s.LastError, s.Restarts, s.LastSegmentUtc,
+            s.Events.ToString(), s.EventError, s.Motion, s.LastMotionUtc);
     }
 
     /// <summary>Kamera für die Oberfläche; das Passwort wird nie ausgeliefert, nur ob eines gesetzt ist.</summary>
     internal sealed record CameraDto(
         Guid Id, string Name, string MainStreamUrl, string? SubStreamUrl, string? Username, bool HasPassword,
         string? OnvifAddress, string? Manufacturer, string? Model, bool RecordingEnabled, double QuotaGb, int? MaxRetentionDays,
-        int Rotation, CameraStatusDto Status, StorageUsage Storage);
+        int Rotation, string RecordingMode, int PreRollSeconds, int PostRollSeconds, CameraStatusDto Status, StorageUsage Storage);
 
     internal sealed record TestStreamRequest(string Url, string? Username, string? Password, Guid? CameraId);
 
@@ -177,7 +195,11 @@ internal static class CameraEndpoints
             Username = string.IsNullOrWhiteSpace(r.Username) ? user : r.Username.Trim(),
             Password = r.Password ?? password,
         };
-        return (normalized, CameraValidator.Validate(normalized.Name, main, sub, r.QuotaGb, r.MaxRetentionDays, r.Rotation));
+        var errors = CameraValidator.Validate(normalized.Name, main, sub, r.QuotaGb, r.MaxRetentionDays, r.Rotation,
+            r.Mode ?? RecordingMode.Off, r.OnvifAddress, r.PreRollSeconds, r.PostRollSeconds);
+        if (r.Mode is null)
+            errors["recordingMode"] = ["invalidRecordingMode"];
+        return (normalized, errors);
     }
 
     private static void Apply(Camera camera, CameraRequest r, CameraCredentialProtector credentials, bool keepPasswordIfNull)
@@ -191,7 +213,9 @@ internal static class CameraEndpoints
         camera.OnvifAddress = string.IsNullOrWhiteSpace(r.OnvifAddress) ? null : r.OnvifAddress.Trim();
         camera.Manufacturer = r.Manufacturer;
         camera.Model = r.Model;
-        camera.RecordingEnabled = r.RecordingEnabled;
+        camera.RecordingMode = r.Mode!.Value;
+        camera.PreRollSeconds = r.PreRollSeconds;
+        camera.PostRollSeconds = r.PostRollSeconds;
         camera.QuotaGb = r.QuotaGb;
         camera.MaxRetentionDays = r.MaxRetentionDays;
         camera.Rotation = r.Rotation;
@@ -203,6 +227,7 @@ internal static class CameraEndpoints
         return new CameraDto(
             c.Id, c.Name, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword is not null,
             c.OnvifAddress, c.Manufacturer, c.Model, c.RecordingEnabled, c.QuotaGb, c.MaxRetentionDays, c.Rotation,
+            c.RecordingMode.ToString(), c.PreRollSeconds, c.PostRollSeconds,
             CameraStatusDto.From(c.RecordingEnabled ? s : s with { State = CameraState.Idle }),
             usage is null ? new StorageUsage(0, 0, null, null, null) : usage with
             {

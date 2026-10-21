@@ -54,6 +54,33 @@ public class CameraTests
     }
 
     [Fact]
+    public async Task Aufnahmemodus_BewegungBrauchtOnvifUndGueltigeZeiten()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+
+        var created = await admin.PostAsJsonAsync("/api/cameras", new
+        {
+            name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, onvifAddress = "http://cam/onvif/device_service",
+            recordingMode = "motion", preRollSeconds = 0, postRollSeconds = 2,
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var camera = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Motion", camera.GetProperty("recordingMode").GetString());
+        Assert.Equal(0, camera.GetProperty("preRollSeconds").GetInt32());
+        Assert.Equal(2, camera.GetProperty("postRollSeconds").GetInt32());
+        Assert.True(camera.GetProperty("recordingEnabled").GetBoolean());
+
+        var noOnvif = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion" });
+        Assert.Contains("motionNeedsOnvif", await noOnvif.Content.ReadAsStringAsync());
+
+        var invalid = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Immer", preRollSeconds = -1 });
+        var errors = await invalid.Content.ReadAsStringAsync();
+        Assert.Contains("invalidRecordingMode", errors);
+        Assert.Contains("preRollSeconds", errors);
+    }
+
+    [Fact]
     public async Task Passwort_LiegtVerschluesseltInDerDatenbank()
     {
         using var factory = new LittleSisterFactory();

@@ -25,8 +25,8 @@ internal static class RecordingEndpoints
     /// <param name="Thumbnails">Anzahl der Vorschaubilder im Bildstreifen des Segments, eines je <see cref="DayDto.ThumbnailSeconds"/>.</param>
     internal sealed record SegmentDto(long Id, DateTimeOffset StartUtc, DateTimeOffset EndUtc, int Thumbnails);
 
-    /// <summary>Ereignismarker auf der Zeitleiste (z. B. Bewegung); folgen mit der ereignisgesteuerten Aufnahme.</summary>
-    internal sealed record EventDto(DateTimeOffset TimeUtc, string Kind);
+    /// <summary>Ereignis auf der Zeitleiste (z. B. Bewegung); EndUtc null = läuft noch.</summary>
+    internal sealed record EventDto(DateTimeOffset StartUtc, DateTimeOffset? EndUtc, string Kind);
 
     /// <param name="Segments">Abspielbare Segmente in Playlist-Reihenfolge; die Oberfläche rechnet damit Uhrzeit und Abspielposition um.</param>
     /// <param name="PreviousDate">Letzter Tag davor mit Aufnahmen, für die Blätter-Knöpfe.</param>
@@ -49,6 +49,12 @@ internal static class RecordingEndpoints
         var day = RecordingDay.Of(date ?? today, zone);
         var segments = await PlayableSegmentsAsync(db, id, day, ct);
 
+        var events = await db.Events.AsNoTracking()
+            .Where(e => e.CameraId == id && e.StartUtc < day.ToUtc && (e.EndUtc == null || e.EndUtc > day.FromUtc))
+            .OrderBy(e => e.StartUtc)
+            .Select(e => new EventDto(e.StartUtc, e.EndUtc, e.Kind))
+            .ToListAsync(ct);
+
         var previous = await db.Segments.Where(s => s.CameraId == id && s.StartUtc < day.FromUtc)
             .OrderByDescending(s => s.StartUtc).Select(s => (DateTimeOffset?)s.StartUtc).FirstOrDefaultAsync(ct);
         var next = await db.Segments.Where(s => s.CameraId == id && s.StartUtc >= day.ToUtc)
@@ -56,7 +62,7 @@ internal static class RecordingEndpoints
 
         return Results.Ok(new DayDto(
             day.Date, today, zone.Id, day.FromUtc, day.ToUtc,
-            segments.Select(s => new SegmentDto(s.Id, s.StartUtc, s.EndUtc, SegmentThumbnails.CountOf(s))).ToList(), [],
+            segments.Select(s => new SegmentDto(s.Id, s.StartUtc, s.EndUtc, SegmentThumbnails.CountOf(s))).ToList(), events,
             previous is { } p ? RecordingDay.DateOf(p, zone) : null,
             next is { } n ? RecordingDay.DateOf(n, zone) : null,
             await thumbnails.IsEnabledAsync(ct) ? SegmentThumbnails.IntervalSeconds : 0));

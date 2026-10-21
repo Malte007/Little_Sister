@@ -7,6 +7,8 @@ public enum CameraState
 {
     /// <summary>Aufnahme ist für diese Kamera ausgeschaltet.</summary>
     Idle,
+    /// <summary>Modus "Bei Bewegung": wartet auf Bewegung, es wird nichts gespeichert.</summary>
+    Standby,
     /// <summary>ffmpeg startet und verbindet sich.</summary>
     Connecting,
     /// <summary>Segmente werden geschrieben.</summary>
@@ -15,12 +17,29 @@ public enum CameraState
     Error,
 }
 
+/// <summary>Verbindung zu den ONVIF-Ereignissen einer Kamera.</summary>
+public enum EventState
+{
+    /// <summary>Keine Ereignisse (keine ONVIF-Adresse oder Aufnahme aus).</summary>
+    None,
+    Connecting,
+    Connected,
+    /// <summary>Abonnement fehlgeschlagen; neuer Versuch läuft.</summary>
+    Error,
+}
+
+/// <param name="EventError">Fehlercode der Ereignisverbindung, z. B. "onvifUnauthorized".</param>
+/// <param name="Motion">Meldet die Kamera gerade Bewegung?</param>
 public sealed record CameraStatus(
     CameraState State,
     DateTimeOffset SinceUtc,
     string? LastError = null,
     int Restarts = 0,
-    DateTimeOffset? LastSegmentUtc = null);
+    DateTimeOffset? LastSegmentUtc = null,
+    EventState Events = EventState.None,
+    string? EventError = null,
+    bool Motion = false,
+    DateTimeOffset? LastMotionUtc = null);
 
 /// <summary>Aktueller Zustand aller Kameras im Speicher (wird nicht persistiert).</summary>
 public sealed class CameraStatusRegistry(TimeProvider time)
