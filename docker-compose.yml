@@ -6,8 +6,9 @@ services:
     build: .
     container_name: little-sister
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # Host-Netzwerk, damit die ONVIF-Kamerasuche (UDP-Multicast) funktioniert.
+    # Ohne Suche geht auch Bridge-Netzwerk: network_mode entfernen und "ports: [8080:8080]" setzen.
+    network_mode: host
     environment:
       TZ: ${TZ:-Europe/Berlin}
     volumes:

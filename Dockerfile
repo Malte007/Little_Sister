@@ -22,8 +22,11 @@ RUN dotnet publish src/LittleSister.Api/LittleSister.Api.csproj \
       --configuration Release --no-restore --output /app \
       -p:Version="$VERSION"
 
-# 3) Schlankes Laufzeit-Image
+# 3) Schlankes Laufzeit-Image mit ffmpeg für die Aufnahme
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=backend /app ./
 COPY --from=web /src/web/build ./wwwroot

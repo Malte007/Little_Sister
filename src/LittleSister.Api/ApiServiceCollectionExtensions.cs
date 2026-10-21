@@ -23,7 +23,7 @@ internal static class ApiServiceCollectionExtensions
         // Schlüssel für Cookies/Tokens (und später Kamera-Zugangsdaten) getrennt von der Datenbank ablegen
         services.AddDataProtection()
             .SetApplicationName("LittleSister")
-            .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(options.GetFullDataPath(), "keys")));
+            .PersistKeysToFileSystem(new DirectoryInfo(options.GetFullKeysPath()));
 
         // Cookie für die Weboberfläche, Bearer-Token für spätere Apps
         services.AddIdentityApiEndpoints<AppUser>(o =>

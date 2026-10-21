@@ -79,3 +79,93 @@ export interface SystemInfo {
 	language: string;
 	timeZoneId: string;
 }
+
+export type CameraState = 'Idle' | 'Connecting' | 'Recording' | 'Error';
+
+export interface Camera {
+	id: string;
+	name: string;
+	mainStreamUrl: string;
+	subStreamUrl: string | null;
+	username: string | null;
+	hasPassword: boolean;
+	onvifAddress: string | null;
+	manufacturer: string | null;
+	model: string | null;
+	recordingEnabled: boolean;
+	quotaGb: number;
+	maxRetentionDays: number | null;
+	status: {
+		state: CameraState;
+		sinceUtc: string;
+		lastError: string | null;
+		restarts: number;
+		lastSegmentUtc: string | null;
+	};
+	storage: {
+		usedBytes: number;
+		segmentCount: number;
+		oldestUtc: string | null;
+		newestUtc: string | null;
+		estimatedDays: number | null;
+	};
+}
+
+/** Eingaben beim Anlegen/Ändern; password null = beim Ändern unverändert lassen. */
+export interface CameraInput {
+	name: string;
+	mainStreamUrl: string;
+	subStreamUrl: string | null;
+	username: string | null;
+	password: string | null;
+	onvifAddress: string | null;
+	manufacturer: string | null;
+	model: string | null;
+	recordingEnabled: boolean;
+	quotaGb: number;
+	maxRetentionDays: number | null;
+}
+
+export interface DiscoveredDevice {
+	address: string;
+	host: string;
+	name: string | null;
+	hardware: string | null;
+}
+
+export interface OnvifProfile {
+	token: string;
+	name: string;
+	encoding: string | null;
+	width: number;
+	height: number;
+	streamUri: string | null;
+}
+
+export interface OnvifProbeResult {
+	device: {
+		manufacturer: string | null;
+		model: string | null;
+		firmwareVersion: string | null;
+		serialNumber: string | null;
+	};
+	profiles: OnvifProfile[];
+	suggestedMainStream: string | null;
+	suggestedSubStream: string | null;
+}
+
+export interface StreamProbeResult {
+	success: boolean;
+	codec: string | null;
+	width: number;
+	height: number;
+	error: string | null;
+}
+
+export interface StorageInfo {
+	recordingsPath: string;
+	freeBytes: number | null;
+	totalBytes: number | null;
+	usedBytes: number;
+	minFreeGb: number;
+}
