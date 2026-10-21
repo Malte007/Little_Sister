@@ -109,6 +109,8 @@ export interface Camera {
 	recordingEnabled: boolean;
 	quotaGb: number;
 	maxRetentionDays: number | null;
+	/** Drehung im Uhrzeigersinn: 0, 90, 180 oder 270 */
+	rotation: number;
 	status: CameraStatus;
 	storage: {
 		usedBytes: number;
@@ -132,6 +134,7 @@ export interface CameraInput {
 	recordingEnabled: boolean;
 	quotaGb: number;
 	maxRetentionDays: number | null;
+	rotation: number;
 }
 
 export interface DiscoveredDevice {

@@ -45,7 +45,8 @@
 			model: null,
 			recordingEnabled: true,
 			quotaGb: 200,
-			maxRetentionDays: null
+			maxRetentionDays: null,
+			rotation: 0
 		};
 	}
 

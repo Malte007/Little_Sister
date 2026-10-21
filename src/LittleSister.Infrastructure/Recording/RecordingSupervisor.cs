@@ -108,5 +108,5 @@ public sealed class RecordingSupervisor(
 
     /// <summary>Alles, was einen Neustart des Recorders erfordert.</summary>
     private static string Fingerprint(Camera c, string root) =>
-        string.Join('|', root, c.MainStreamUrl, c.Username, c.ProtectedPassword);
+        string.Join('|', root, c.MainStreamUrl, c.Username, c.ProtectedPassword, c.Rotation);
 }

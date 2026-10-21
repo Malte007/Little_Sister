@@ -38,9 +38,9 @@
 
 {#if liveUsable}
 	<div class="card stage">
-		<!-- Neu aufbauen, wenn Auflösung oder Ton wechseln -->
-		{#key `${hd}-${audio}`}
-			<LiveVideo cameraId={camera.id} hd={hasSub && hd} {audio} />
+		<!-- Neu aufbauen, wenn die Auflösung wechselt -->
+		{#key hd}
+			<LiveVideo cameraId={camera.id} hd={hasSub && hd} {audio} rotation={camera.rotation} />
 		{/key}
 	</div>
 {:else}

@@ -184,6 +184,16 @@
 		{/if}
 	</div>
 
+	<div class="field">
+		<label for="rotation">{t('cameras.rotation')}</label>
+		<select id="rotation" bind:value={form.rotation}>
+			{#each [0, 90, 180, 270] as degrees (degrees)}
+				<option value={degrees}>{degrees === 0 ? t('cameras.rotationNone') : `${degrees}°`}</option>
+			{/each}
+		</select>
+		<p class="muted small">{t('cameras.rotationHint')}</p>
+	</div>
+
 	<label class="toggle">
 		<input type="checkbox" bind:checked={form.recordingEnabled} />
 		<span>
@@ -228,8 +238,12 @@
 			gap: 0;
 		}
 	}
-	.test {
+	.test,
+	.field {
 		margin-bottom: 1.25rem;
+	}
+	.field p {
+		margin: 0.35rem 0 0;
 	}
 	.test p {
 		margin: 0.6rem 0 0;

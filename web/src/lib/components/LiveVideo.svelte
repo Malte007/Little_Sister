@@ -9,17 +9,22 @@
 		cameraId,
 		hd = false,
 		audio = false,
+		rotation = 0,
 		onlyWhenVisible = false
 	}: {
 		cameraId: string;
 		/** Hauptstream statt Substream */
 		hd?: boolean;
+		/** Ton hörbar; angefordert wird er immer, manche Kameras senden sonst gar nichts */
 		audio?: boolean;
+		/** Drehung im Uhrzeigersinn; dreht nur die Anzeige, ohne Rechenaufwand */
+		rotation?: number;
 		/** Stream nur laden, solange die Kachel im sichtbaren Bereich ist */
 		onlyWhenVisible?: boolean;
 	} = $props();
 
 	let host: HTMLDivElement;
+	let player = $state<LivePlayer>();
 	let playerState = $state<PlayerState>('connecting');
 	let error = $state<string | null>(null);
 	// Standbild als Platzhalter; Zeitstempel verhindert ein veraltetes Bild aus dem Browser-Cache
@@ -34,32 +39,44 @@
 
 	onMount(() => {
 		definePlayer();
-		const player = document.createElement('ls-live-video') as LivePlayer;
-		player.mode = 'webrtc,mse';
-		player.media = audio ? 'video,audio' : 'video';
-		if (onlyWhenVisible) player.visibilityThreshold = 0.1;
-		player.addEventListener('playerstate', (e) => {
+		const element = document.createElement('ls-live-video') as LivePlayer;
+		// Wie go2rtcs eigener Player: Bild und Ton anfordern
+		element.mode = 'webrtc,mse';
+		element.media = 'video,audio';
+		if (onlyWhenVisible) element.visibilityThreshold = 0.1;
+		element.addEventListener('playerstate', (e) => {
 			const { state: next, detail } = (e as CustomEvent<{ state: PlayerState; detail?: string }>)
 				.detail;
 			playerState = next;
 			error = next === 'error' ? (detail ?? null) : null;
 		});
-		host.appendChild(player);
-		player.src = `/api/live/${cameraId}/ws?hd=${hd}`;
-		return () => player.remove();
+		host.appendChild(element);
+		element.src = `/api/live/${cameraId}/ws?hd=${hd}`;
+		player = element;
+		return () => element.remove();
 	});
+
+	// Ton ein/aus ohne neue Verbindung
+	$effect(() => {
+		if (player?.video) player.video.muted = !audio;
+	});
+
+	const turned = $derived(rotation === 90 || rotation === 270);
 </script>
 
 <div class="live">
-	{#if playerState !== 'playing' && posterOk}
-		<img
-			src={poster}
-			alt=""
-			onerror={() => (posterOk = false)}
-			transition:fade={{ duration: 200 }}
-		/>
-	{/if}
-	<div class="player" bind:this={host}></div>
+	<!-- Bei 90°/270° tauschen Breite und Höhe, damit das gedrehte Bild in die Kachel passt -->
+	<div class="rotor" class:turned style:transform="translate(-50%, -50%) rotate({rotation}deg)">
+		{#if playerState !== 'playing' && posterOk}
+			<img
+				src={poster}
+				alt=""
+				onerror={() => (posterOk = false)}
+				transition:fade={{ duration: 200 }}
+			/>
+		{/if}
+		<div class="player" bind:this={host}></div>
+	</div>
 	{#if playerState !== 'playing'}
 		<div class="overlay" transition:fade={{ duration: 200 }}>
 			{#if playerState === 'error'}
@@ -77,6 +94,18 @@
 		aspect-ratio: 16 / 9;
 		background: #000;
 		overflow: hidden;
+		container-type: size;
+	}
+	.rotor {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 100cqw;
+		height: 100cqh;
+	}
+	.rotor.turned {
+		width: 100cqh;
+		height: 100cqw;
 	}
 	.player,
 	img {

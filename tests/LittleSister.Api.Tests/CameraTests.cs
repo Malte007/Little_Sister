@@ -39,6 +39,21 @@ public class CameraTests
     }
 
     [Fact]
+    public async Task Drehung_WirdGespeichert_UngueltigeWirdAbgelehnt()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+
+        var created = await admin.PostAsJsonAsync("/api/cameras", new { name = "Flur", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, rotation = 90 });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(90, (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rotation").GetInt32());
+
+        var invalid = await admin.PostAsJsonAsync("/api/cameras", new { name = "Flur", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, rotation = 45 });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Contains("invalidRotation", await invalid.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Passwort_LiegtVerschluesseltInDerDatenbank()
     {
         using var factory = new LittleSisterFactory();

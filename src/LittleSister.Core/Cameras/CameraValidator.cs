@@ -5,7 +5,10 @@ public static class CameraValidator
 {
     public const double MinQuotaGb = 1;
 
-    public static Dictionary<string, string[]> Validate(string? name, string? mainStreamUrl, string? subStreamUrl, double quotaGb, int? maxRetentionDays)
+    public static readonly int[] Rotations = [0, 90, 180, 270];
+
+    public static Dictionary<string, string[]> Validate(
+        string? name, string? mainStreamUrl, string? subStreamUrl, double quotaGb, int? maxRetentionDays, int rotation = 0)
     {
         var errors = new Dictionary<string, string[]>();
 
@@ -23,6 +26,9 @@ public static class CameraValidator
 
         if (maxRetentionDays is < 1)
             errors["maxRetentionDays"] = ["tooSmall"];
+
+        if (!Rotations.Contains(rotation))
+            errors["rotation"] = ["invalidRotation"];
 
         return errors;
     }
