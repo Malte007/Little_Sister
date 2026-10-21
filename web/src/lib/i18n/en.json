@@ -225,12 +225,14 @@
 		"zoom2": "1 hour",
 		"zoom3": "15 minutes",
 		"export": "Export",
-		"exportHint": "Move the playback position to the start and end of the clip you want and mark each. The export begins at the preceding keyframe, so up to a few seconds earlier.",
+		"exportHint": "Mark the period on the timeline by dragging, or set start and end at the playback position. The export begins at the preceding keyframe, so up to a few seconds earlier.",
 		"setStart": "Start here",
 		"setEnd": "End here",
 		"download": "Download as MP4",
 		"clear": "Clear selection",
 		"endBeforeStart": "The end must be after the start.",
-		"exportTooLong": "At most 24 hours at once."
+		"exportTooLong": "At most 24 hours at once.",
+		"zoom4": "3 minutes",
+		"timelineHelp": "Click to jump · drag to mark for export · hold the mouse still to zoom · wheel zooms · drag the scale to pan"
 	}
 }

@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Zeitleiste eines Tages: aufgenommene Bereiche, Ereignismarker, Abspielposition und Export-Auswahl.
-	// Klick springt an die Stelle; im vergrößerten Ausschnitt lässt sich die Leiste ziehen.
-	import { untrack } from 'svelte';
+	// Klick springt, Ziehen markiert einen Zeitraum, Verweilen mit der Maus vergrößert um den Mauszeiger
+	// (Lupe, endet beim Verlassen), Mausrad zoomt, Ziehen auf der Skala verschiebt den Ausschnitt.
+	import { onDestroy, untrack } from 'svelte';
 	import { i18n, t } from '#lib/i18n/index.svelte.js';
 	import { tickStep, ticks, zoneOffset, type Range } from '#lib/playback/timeline.js';
 
@@ -13,7 +14,8 @@
 		position,
 		selection = null,
 		timeZone,
-		onseek
+		onseek,
+		onselect
 	}: {
 		/** Tagesanfang und -ende in ms seit 1970 */
 		from: number;
@@ -28,45 +30,67 @@
 		selection?: { start: number | null; end: number | null } | null;
 		timeZone: string;
 		onseek: (wall: number) => void;
+		/** Mit der Maus markierter Zeitraum */
+		onselect?: (start: number, end: number) => void;
 	} = $props();
 
-	// Sichtbarer Ausschnitt: ganzer Tag bis 15 Minuten
-	const zooms = [0, 6 * 3_600_000, 3_600_000, 15 * 60_000];
-	let zoom = $state(0);
+	// Ausschnitte: ganzer Tag bis 3 Minuten
+	const zooms = [0, 6 * 3_600_000, 3_600_000, 15 * 60_000, 3 * 60_000];
+	const maxZoom = zooms.length - 1;
+	const dwellMs = 700;
+
+	// Gewählte Vergrößerung (Knöpfe, Mausrad) und zusätzliche Stufen der Lupe
+	let baseZoom = $state(0);
+	let lupe = $state(0);
+	const zoom = $derived(Math.min(baseZoom + lupe, maxZoom));
 	let viewStart = $state(0);
 	const daySpan = $derived(to - from);
-	const span = $derived(zooms[zoom] === 0 ? daySpan : Math.min(zooms[zoom], daySpan));
+	const spanOf = (level: number) =>
+		zooms[level] === 0 ? to - from : Math.min(zooms[level], to - from);
+	const span = $derived(spanOf(zoom));
 	const viewEnd = $derived(viewStart + span);
 
+	let track = $state<HTMLDivElement>();
 	let width = $state(0);
-	let hover = $state<number | null>(null);
+	let hover = $state<{ time: number; x: number } | null>(null);
 
-	function clampView(start: number) {
-		return Math.min(Math.max(start, from), to - span);
+	const clamp = (start: number, size: number) => Math.min(Math.max(start, from), to - size);
+	const pct = (time: number) => ((time - viewStart) / span) * 100;
+	const timeAt = (x: number) => viewStart + (x / Math.max(width, 1)) * span;
+	const xOf = (e: PointerEvent | WheelEvent) =>
+		e.clientX - (track?.getBoundingClientRect().left ?? 0);
+
+	/** Wechselt die Vergrößerung; die Zeit unter dem Ankerpunkt (Anteil der Breite) bleibt an ihrem Platz. */
+	function setZoom(base: number, extra: number, anchor: number, fraction: number) {
+		const level = Math.min(base + extra, maxZoom);
+		baseZoom = base;
+		lupe = extra;
+		viewStart = clamp(anchor - fraction * spanOf(level), spanOf(level));
 	}
 
 	// Hat der Benutzer den Ausschnitt verschoben, folgt er der Position erst nach dem nächsten Sprung wieder
 	let panned = false;
 
-	// Neuer Tag oder neue Vergrößerung: Ausschnitt um die Abspielposition legen
+	// Neuer Tag: ganzer Tag sichtbar
 	$effect(() => {
-		const size = span;
-		const center = untrack(() => position) ?? from;
-		panned = false;
-		viewStart = untrack(() => clampView(center - size / 2));
-	});
-
-	// Läuft die Position aus dem Ausschnitt, wandert er mit
-	$effect(() => {
-		if (position === null || panned) return;
-		const p = position;
+		void from;
 		untrack(() => {
-			if (p < viewStart || p > viewStart + span) viewStart = clampView(p - span * 0.1);
+			baseZoom = 0;
+			lupe = 0;
+			panned = false;
+			viewStart = from;
 		});
 	});
 
-	const pct = (time: number) => ((time - viewStart) / span) * 100;
-	const timeAt = (x: number) => viewStart + (x / Math.max(width, 1)) * span;
+	// Läuft die Position aus dem Ausschnitt, wandert er mit (nicht während Lupe oder Ziehen)
+	$effect(() => {
+		if (position === null) return;
+		const p = position;
+		untrack(() => {
+			if (panned || lupe > 0 || drag) return;
+			if (p < viewStart || p > viewStart + span) viewStart = clamp(p - span * 0.1, span);
+		});
+	});
 
 	const hourMinute = $derived(
 		new Intl.DateTimeFormat(i18n.language, { timeZone, hour: '2-digit', minute: '2-digit' })
@@ -83,33 +107,86 @@
 		ticks(viewStart, viewEnd, tickStep(span), (t) => zoneOffset(timeZone, t))
 	);
 
-	// Ziehen verschiebt den Ausschnitt, ein einfacher Klick springt
-	let drag: { x: number; start: number; moved: boolean } | null = null;
+	// Lupe: bleibt die Maus kurz stehen, eine Stufe näher heran
+	let dwell: ReturnType<typeof setTimeout> | undefined;
+	function armDwell() {
+		clearTimeout(dwell);
+		dwell = setTimeout(() => {
+			if (!hover || zoom >= maxZoom) return;
+			setZoom(baseZoom, lupe + 1, hover.time, hover.x / Math.max(width, 1));
+			armDwell();
+		}, dwellMs);
+	}
+	onDestroy(() => clearTimeout(dwell));
+
+	function leave() {
+		clearTimeout(dwell);
+		if (lupe > 0 && hover) setZoom(baseZoom, 0, hover.time, hover.x / Math.max(width, 1));
+		hover = null;
+	}
+
+	// Auf der Leiste: Klick springt, Ziehen markiert einen Zeitraum
+	let drag: { x: number; time: number; moved: boolean } | null = null;
 
 	function pointerDown(e: PointerEvent) {
-		drag = { x: e.clientX, start: viewStart, moved: false };
-		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		if (e.button !== 0) return;
+		const x = xOf(e);
+		drag = { x, time: timeAt(x), moved: false };
+		track?.setPointerCapture(e.pointerId);
 	}
 
 	function pointerMove(e: PointerEvent) {
-		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		hover = timeAt(e.clientX - rect.left);
+		const x = Math.min(Math.max(xOf(e), 0), width);
+		const time = timeAt(x);
+		// Kleine Zitterbewegungen setzen die Lupe nicht zurück
+		if (!hover || Math.abs(hover.x - x) > 3) armDwell();
+		hover = { time, x };
 		if (!drag) return;
-		const dx = e.clientX - drag.x;
-		if (Math.abs(dx) > 4) drag.moved = true;
-		if (drag.moved && span < daySpan) {
-			panned = true;
-			viewStart = clampView(drag.start - (dx / width) * span);
-		}
+		if (Math.abs(x - drag.x) > 4) drag.moved = true;
+		if (drag.moved) onselect?.(Math.min(drag.time, time), Math.max(drag.time, time));
 	}
 
 	function pointerUp(e: PointerEvent) {
 		if (drag && !drag.moved) {
-			const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 			panned = false;
-			onseek(timeAt(e.clientX - rect.left));
+			onseek(timeAt(xOf(e)));
 		}
 		drag = null;
+	}
+
+	// Mausrad zoomt um den Mauszeiger, waagerecht (oder mit Umschalt) verschiebt es
+	function wheel(e: WheelEvent) {
+		e.preventDefault();
+		const horizontal = e.shiftKey ? e.deltaY : e.deltaX;
+		if (Math.abs(horizontal) > Math.abs(e.shiftKey ? 0 : e.deltaY)) {
+			panned = true;
+			viewStart = clamp(viewStart + (horizontal / Math.max(width, 1)) * span, span);
+			return;
+		}
+		const x = xOf(e);
+		const next = Math.min(Math.max(baseZoom + (e.deltaY < 0 ? 1 : -1), 0), maxZoom);
+		if (next !== baseZoom) setZoom(next, 0, timeAt(x), x / Math.max(width, 1));
+	}
+
+	// Ziehen auf der Skala verschiebt den Ausschnitt
+	let pan: { x: number; start: number } | null = null;
+	function panDown(e: PointerEvent) {
+		pan = { x: e.clientX, start: viewStart };
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+	function panMove(e: PointerEvent) {
+		if (!pan || span >= daySpan) return;
+		panned = true;
+		viewStart = clamp(pan.start - ((e.clientX - pan.x) / Math.max(width, 1)) * span, span);
+	}
+
+	function zoomButton(delta: number) {
+		const anchor =
+			position !== null && position >= viewStart && position <= viewEnd
+				? position
+				: viewStart + span / 2;
+		const next = Math.min(Math.max(baseZoom + delta, 0), maxZoom);
+		setZoom(next, 0, anchor, 0.5);
 	}
 
 	function keydown(e: KeyboardEvent) {
@@ -134,25 +211,26 @@
 		<div class="zoom" role="group" aria-label={t('playback.zoom')}>
 			<button
 				class="secondary"
-				onclick={() => (zoom = Math.max(zoom - 1, 0))}
-				disabled={zoom === 0}
+				onclick={() => zoomButton(-1)}
+				disabled={baseZoom === 0}
 				aria-label={t('playback.zoomOut')}>−</button
 			>
-			<span class="muted">{zoom === 0 ? t('playback.wholeDay') : t(`playback.zoom${zoom}`)}</span>
+			<span class="muted" class:lupe={lupe > 0}
+				>{zoom === 0 ? t('playback.wholeDay') : t(`playback.zoom${zoom}`)}</span
+			>
 			<button
 				class="secondary"
-				onclick={() => (zoom = Math.min(zoom + 1, zooms.length - 1))}
-				disabled={zoom === zooms.length - 1}
+				onclick={() => zoomButton(1)}
+				disabled={baseZoom === maxZoom}
 				aria-label={t('playback.zoomIn')}>+</button
 			>
 		</div>
-		{#if hover !== null}
-			<span class="muted hover-time">{withSeconds.format(hover)}</span>
-		{/if}
+		<span class="muted help">{t('playback.timelineHelp')}</span>
 	</div>
 
 	<div
 		class="track"
+		class:zoomed={lupe > 0}
 		role="slider"
 		tabindex="0"
 		aria-label={t('playback.timeline')}
@@ -160,11 +238,13 @@
 		aria-valuemax={to}
 		aria-valuenow={position ?? from}
 		aria-valuetext={position !== null ? withSeconds.format(position) : ''}
+		bind:this={track}
 		bind:clientWidth={width}
 		onpointerdown={pointerDown}
 		onpointermove={pointerMove}
 		onpointerup={pointerUp}
-		onpointerleave={() => (hover = null)}
+		onpointerleave={leave}
+		onwheel={wheel}
 		onkeydown={keydown}
 	>
 		{#each ranges as r (r.start)}
@@ -188,15 +268,25 @@
 				<div class="event" style:left="{pct(ev.time)}%" title={withSeconds.format(ev.time)}></div>
 			{/if}
 		{/each}
-		{#if hover !== null}
-			<div class="hover" style:left="{pct(hover)}%"></div>
-		{/if}
 		{#if position !== null && visible(position, position)}
 			<div class="playhead" style:left="{pct(position)}%"></div>
 		{/if}
+		{#if hover !== null}
+			<div class="hover" style:left="{pct(hover.time)}%">
+				<span class:right={hover.x > width - 80}>{withSeconds.format(hover.time)}</span>
+			</div>
+		{/if}
 	</div>
 
-	<div class="ticks" aria-hidden="true">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="ticks"
+		class:pannable={span < daySpan}
+		aria-hidden="true"
+		onpointerdown={panDown}
+		onpointermove={panMove}
+		onpointerup={() => (pan = null)}
+	>
 		{#each labels as l (l)}
 			<span style:left="{pct(l)}%">{hourMinute.format(l)}</span>
 		{/each}
@@ -228,8 +318,12 @@
 		min-width: 6rem;
 		text-align: center;
 	}
-	.hover-time {
-		font-variant-numeric: tabular-nums;
+	.help {
+		font-size: 0.75rem;
+		text-align: right;
+	}
+	.lupe {
+		color: var(--accent);
 	}
 	.track {
 		position: relative;
@@ -278,6 +372,23 @@
 		background: var(--text-muted);
 		pointer-events: none;
 	}
+	/* Uhrzeit direkt am Mauszeiger, am rechten Rand links davon */
+	.hover span {
+		position: absolute;
+		top: 0.1rem;
+		left: 0.3rem;
+		font-size: 0.7rem;
+		font-variant-numeric: tabular-nums;
+		color: var(--text);
+		white-space: nowrap;
+	}
+	.hover span.right {
+		left: auto;
+		right: 0.3rem;
+	}
+	.track.zoomed {
+		border-color: var(--accent);
+	}
 	.playhead {
 		position: absolute;
 		top: 0;
@@ -294,6 +405,10 @@
 		font-size: 0.75rem;
 		color: var(--text-muted);
 		font-variant-numeric: tabular-nums;
+		touch-action: none;
+	}
+	.ticks.pannable {
+		cursor: grab;
 	}
 	.ticks span {
 		position: absolute;

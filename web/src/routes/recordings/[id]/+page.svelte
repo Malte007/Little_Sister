@@ -232,6 +232,7 @@
 		{selection}
 		timeZone={day.timeZoneId}
 		onseek={seekWall}
+		onselect={(start, end) => (selection = { start, end })}
 	/>
 </div>
 
