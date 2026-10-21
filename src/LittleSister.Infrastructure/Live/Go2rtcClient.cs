@@ -56,6 +56,10 @@ public sealed class Go2rtcClient(HttpClient http)
     public async Task<byte[]?> GetFrameAsync(string name, CancellationToken ct)
     {
         using var response = await http.GetAsync($"api/frame.jpeg?src={Uri.EscapeDataString(name)}", ct);
-        return response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(ct) : null;
+        if (!response.IsSuccessStatusCode)
+            return null;
+        // Kurz nach dem Verbindungsaufbau antwortet go2rtc teils mit leerem Inhalt; nur echte JPEGs weitergeben
+        var frame = await response.Content.ReadAsByteArrayAsync(ct);
+        return frame is [0xFF, 0xD8, ..] ? frame : null;
     }
 }
