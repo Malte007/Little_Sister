@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+artifacts/
+
+# Node / SvelteKit
+node_modules/
+web/.svelte-kit/
+web/build/
+
+# Lokale Laufzeitdaten
+data/
+recordings/
+*.db
+*.db-shm
+*.db-wal
+
+# Editoren und Betriebssystem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
