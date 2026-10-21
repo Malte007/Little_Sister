@@ -1,0 +1,81 @@
+// Schlanker Zugriff auf die Little-Sister-API; Anmeldung läuft über das HttpOnly-Cookie.
+
+/** Fehlerantwort der API (ProblemDetails bzw. ValidationProblem). */
+export class ApiError extends Error {
+	constructor(
+		public readonly status: number,
+		/** Fehlercode aus "title", z. B. "invalidCredentials". */
+		public readonly code: string,
+		/** Feldfehler, z. B. { password: ['PasswordTooShort'] }. */
+		public readonly fields: Record<string, string[]> = {}
+	) {
+		super(code);
+	}
+
+	/** Liefert den ersten Fehlercode für ein Feld (Groß-/Kleinschreibung egal). */
+	field(name: string): string | undefined {
+		const key = Object.keys(this.fields).find((k) => k.toLowerCase() === name.toLowerCase());
+		return key ? this.fields[key][0] : undefined;
+	}
+}
+
+/** Baut aus einer fehlgeschlagenen Antwort einen ApiError. */
+export async function toApiError(response: Response): Promise<ApiError> {
+	let body: { title?: string; errors?: Record<string, string[]> } = {};
+	try {
+		body = await response.json();
+	} catch {
+		// Kein JSON, z. B. bei 429 – dann reicht der Statuscode
+	}
+	return new ApiError(response.status, body.title ?? `http${response.status}`, body.errors ?? {});
+}
+
+type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
+/** Ruft einen API-Endpunkt auf und liefert das JSON-Ergebnis (oder undefined bei 204). */
+export async function api<T = void>(
+	path: string,
+	options: { method?: Method; body?: unknown; fetch?: typeof fetch } = {}
+): Promise<T> {
+	const response = await (options.fetch ?? fetch)(path, {
+		method: options.method ?? 'GET',
+		headers: options.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+		body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+		credentials: 'same-origin'
+	});
+
+	if (!response.ok) throw await toApiError(response);
+	if (response.status === 204 || response.headers.get('content-length') === '0')
+		return undefined as T;
+
+	const text = await response.text();
+	return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/** Datentypen der API */
+export interface SetupStatus {
+	required: boolean;
+	defaultRecordingsPath: string;
+	defaultTimeZoneId: string;
+	languages: string[];
+}
+
+export interface CurrentUser {
+	id: string;
+	userName: string;
+	roles: string[];
+}
+
+export interface UserInfo {
+	id: string;
+	userName: string;
+	role: 'Admin' | 'Viewer';
+	lockedOut: boolean;
+	createdAtUtc: string;
+}
+
+export interface SystemInfo {
+	version: string;
+	language: string;
+	timeZoneId: string;
+}

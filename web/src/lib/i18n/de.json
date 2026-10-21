@@ -1,0 +1,92 @@
+{
+	"app": {
+		"name": "Little Sister",
+		"tagline": "Deine Kameras. Dein Server."
+	},
+	"common": {
+		"back": "Zurück",
+		"next": "Weiter",
+		"cancel": "Abbrechen",
+		"save": "Speichern",
+		"delete": "Löschen",
+		"loading": "Wird geladen …",
+		"logout": "Abmelden",
+		"language": "Sprache"
+	},
+	"nav": {
+		"overview": "Übersicht",
+		"users": "Benutzer"
+	},
+	"roles": {
+		"Admin": "Administrator",
+		"Viewer": "Betrachter"
+	},
+	"login": {
+		"title": "Willkommen zurück",
+		"subtitle": "Melde dich an, um deine Kameras zu sehen.",
+		"userName": "Benutzername",
+		"password": "Passwort",
+		"rememberMe": "Angemeldet bleiben",
+		"submit": "Anmelden"
+	},
+	"setup": {
+		"title": "Willkommen bei Little Sister",
+		"intro": "In drei kurzen Schritten ist alles eingerichtet.",
+		"stepAccount": "Dein Konto",
+		"stepAccountText": "Mit diesem Konto verwaltest du später Kameras und Benutzer.",
+		"stepStorage": "Speicherort",
+		"stepStorageText": "Hier legt Little Sister die Aufnahmen ab. Der Ordner sollte auf einer großen Festplatte liegen.",
+		"stepRegion": "Sprache und Zeit",
+		"stepRegionText": "Aufnahmen werden intern in UTC gespeichert und in deiner Zeitzone angezeigt.",
+		"userName": "Benutzername",
+		"password": "Passwort",
+		"passwordHint": "Mindestens 10 Zeichen. Ein langer Satz ist sicherer als ein kurzes Wort.",
+		"passwordRepeat": "Passwort wiederholen",
+		"passwordMismatch": "Die Passwörter stimmen nicht überein.",
+		"recordingsPath": "Ordner für Aufnahmen",
+		"recordingsPathHint": "Vollständiger Pfad, z. B. /recordings oder /mnt/user/kameras.",
+		"language": "Sprache",
+		"timeZone": "Zeitzone",
+		"finish": "Einrichtung abschließen",
+		"step": "Schritt {current} von {total}"
+	},
+	"home": {
+		"greeting": "Hallo, {name}",
+		"camerasTitle": "Noch keine Kameras",
+		"camerasText": "Kameras hinzufügen, Live-Bilder und Aufnahmen kommen mit den nächsten Ausbaustufen.",
+		"signedInAs": "Angemeldet als {role}",
+		"version": "Version {version}"
+	},
+	"users": {
+		"title": "Benutzer",
+		"subtitle": "Administratoren dürfen alles, Betrachter nur ansehen und herunterladen.",
+		"add": "Benutzer hinzufügen",
+		"userName": "Benutzername",
+		"password": "Passwort",
+		"role": "Rolle",
+		"createdAt": "Angelegt am",
+		"lockedOut": "Vorübergehend gesperrt",
+		"you": "Du",
+		"deleteConfirm": "{name} wirklich löschen?",
+		"empty": "Noch keine weiteren Benutzer."
+	},
+	"errors": {
+		"generic": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+		"network": "Der Server ist gerade nicht erreichbar.",
+		"invalidCredentials": "Benutzername oder Passwort ist falsch.",
+		"lockedOut": "Zu viele Fehlversuche. Das Konto ist für einige Minuten gesperrt.",
+		"http429": "Zu viele Versuche in kurzer Zeit. Bitte warte eine Minute.",
+		"required": "Bitte ausfüllen.",
+		"unsupported": "Diese Sprache wird nicht unterstützt.",
+		"unknown": "Unbekannter Wert.",
+		"absolutePathRequired": "Bitte einen vollständigen Pfad angeben, z. B. /recordings oder D:\\Aufnahmen.",
+		"notWritable": "In diesen Ordner darf Little Sister nicht schreiben.",
+		"notAccessible": "Dieser Ordner ist nicht erreichbar.",
+		"PasswordTooShort": "Das Passwort ist zu kurz (mindestens 10 Zeichen).",
+		"DuplicateUserName": "Diesen Benutzernamen gibt es schon.",
+		"InvalidUserName": "Der Benutzername enthält ungültige Zeichen.",
+		"PasswordMismatch": "Das aktuelle Passwort ist falsch.",
+		"cannotDeleteSelf": "Du kannst dein eigenes Konto nicht löschen.",
+		"setupAlreadyCompleted": "Little Sister ist bereits eingerichtet."
+	}
+}

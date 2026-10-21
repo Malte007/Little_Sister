@@ -1,0 +1,92 @@
+{
+	"app": {
+		"name": "Little Sister",
+		"tagline": "Your cameras. Your server."
+	},
+	"common": {
+		"back": "Back",
+		"next": "Next",
+		"cancel": "Cancel",
+		"save": "Save",
+		"delete": "Delete",
+		"loading": "Loading …",
+		"logout": "Sign out",
+		"language": "Language"
+	},
+	"nav": {
+		"overview": "Overview",
+		"users": "Users"
+	},
+	"roles": {
+		"Admin": "Administrator",
+		"Viewer": "Viewer"
+	},
+	"login": {
+		"title": "Welcome back",
+		"subtitle": "Sign in to see your cameras.",
+		"userName": "User name",
+		"password": "Password",
+		"rememberMe": "Keep me signed in",
+		"submit": "Sign in"
+	},
+	"setup": {
+		"title": "Welcome to Little Sister",
+		"intro": "Three short steps and you are ready.",
+		"stepAccount": "Your account",
+		"stepAccountText": "You will use this account to manage cameras and users.",
+		"stepStorage": "Storage",
+		"stepStorageText": "Little Sister stores recordings here. Pick a folder on a large disk.",
+		"stepRegion": "Language and time",
+		"stepRegionText": "Recordings are stored in UTC and shown in your time zone.",
+		"userName": "User name",
+		"password": "Password",
+		"passwordHint": "At least 10 characters. A long sentence beats a short word.",
+		"passwordRepeat": "Repeat password",
+		"passwordMismatch": "The passwords do not match.",
+		"recordingsPath": "Recordings folder",
+		"recordingsPathHint": "Full path, e.g. /recordings or /mnt/user/cameras.",
+		"language": "Language",
+		"timeZone": "Time zone",
+		"finish": "Finish setup",
+		"step": "Step {current} of {total}"
+	},
+	"home": {
+		"greeting": "Hello, {name}",
+		"camerasTitle": "No cameras yet",
+		"camerasText": "Adding cameras, live view and recordings arrive with the next stages.",
+		"signedInAs": "Signed in as {role}",
+		"version": "Version {version}"
+	},
+	"users": {
+		"title": "Users",
+		"subtitle": "Administrators can do everything, viewers can only watch and download.",
+		"add": "Add user",
+		"userName": "User name",
+		"password": "Password",
+		"role": "Role",
+		"createdAt": "Created",
+		"lockedOut": "Temporarily locked",
+		"you": "You",
+		"deleteConfirm": "Really delete {name}?",
+		"empty": "No other users yet."
+	},
+	"errors": {
+		"generic": "Something went wrong. Please try again.",
+		"network": "The server cannot be reached right now.",
+		"invalidCredentials": "User name or password is wrong.",
+		"lockedOut": "Too many failed attempts. The account is locked for a few minutes.",
+		"http429": "Too many attempts. Please wait a minute.",
+		"required": "Please fill in.",
+		"unsupported": "This language is not supported.",
+		"unknown": "Unknown value.",
+		"absolutePathRequired": "Please enter a full path, e.g. /recordings or D:\\Recordings.",
+		"notWritable": "Little Sister may not write to this folder.",
+		"notAccessible": "This folder cannot be reached.",
+		"PasswordTooShort": "The password is too short (at least 10 characters).",
+		"DuplicateUserName": "This user name already exists.",
+		"InvalidUserName": "The user name contains invalid characters.",
+		"PasswordMismatch": "The current password is wrong.",
+		"cannotDeleteSelf": "You cannot delete your own account.",
+		"setupAlreadyCompleted": "Little Sister is already set up."
+	}
+}
