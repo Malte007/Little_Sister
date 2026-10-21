@@ -11,6 +11,10 @@ public sealed class Segment
 
     public DateTimeOffset EndUtc { get; set; }
 
+    /// <summary>Aufnahmeordner zum Zeitpunkt der Aufnahme. Wird der Ordner später geändert,
+    /// bleiben ältere Segmente im alten Ordner und werden dort weiter verwaltet.</summary>
+    public string StorageRoot { get; set; } = "";
+
     /// <summary>Pfad relativ zum Aufnahmeordner, z. B. "&lt;kamera-id&gt;/20261021/120420.mp4".</summary>
     public string RelativePath { get; set; } = "";
 
@@ -18,4 +22,6 @@ public sealed class Segment
 
     /// <summary>Geschützte Segmente (z. B. wichtige Ereignisse) löscht der Ringspeicher nie.</summary>
     public bool IsProtected { get; set; }
+
+    public string FullPath => Path.Combine(StorageRoot, RelativePath);
 }

@@ -36,6 +36,7 @@ public sealed class SegmentIndexer(IServiceScopeFactory scopes, ILogger<SegmentI
             CameraId = cameraId,
             StartUtc = start,
             EndUtc = end,
+            StorageRoot = root,
             RelativePath = relative,
             SizeBytes = info.Length,
         };

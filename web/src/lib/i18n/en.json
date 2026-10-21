@@ -171,6 +171,9 @@
 		"free": "{free} free of {total}",
 		"minFree": "Keep at least free (GB)",
 		"minFreeHint": "Below this, Little Sister deletes the oldest recordings of all cameras.",
-		"path": "Recordings folder"
+		"path": "Recordings folder",
+		"pathHint": "Little Sister stores new recordings here.",
+		"pathChangeHint": "New recordings go to the new folder. Existing ones stay in the previous folder and are still managed and deleted there.",
+		"saved": "Saved"
 	}
 }

@@ -71,6 +71,63 @@ cd web && npm install && npm run dev
 | `dotnet run --project src/LittleSister.Api` | startet die API auf http://localhost:5080 (Daten in `src/LittleSister.Api/data`) |
 | `cd web && npm install && npm run dev` | installiert die Frontend-Pakete und startet die Oberfläche auf http://localhost:5173; `/api` wird an die API weitergeleitet |
 
+### Einrichtung in Rider (Linux, fish)
+
+Voraussetzungen: aktuelles Rider, .NET 10 SDK, ffmpeg und Node.js 24. Node am einfachsten über [nvm](https://github.com/nvm-sh/nvm). nvm ist ein bash-Skript, deshalb wird es unter fish über `bash -c` aufgerufen:
+
+```fish
+sudo apt install dotnet-sdk-10.0 ffmpeg
+bash -c 'source ~/.nvm/nvm.sh && nvm install 24'
+fish_add_path ~/.nvm/versions/node/(bash -c 'source ~/.nvm/nvm.sh && nvm version 24')/bin
+node --version; npm --version
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `sudo apt install …` | installiert .NET 10 SDK und ffmpeg (für Aufnahme und Tests) |
+| `bash -c '… nvm install 24'` | lädt nvm in einer bash und installiert Node.js 24 |
+| `fish_add_path …` | trägt den Node-24-Ordner dauerhaft in den fish-Suchpfad ein, damit `node` und `npm` überall gefunden werden |
+| `node --version; npm --version` | prüft, ob Node 24 und npm 11 aktiv sind |
+
+Projekt holen und öffnen:
+
+```fish
+git clone https://github.com/malte007/little_sister.git
+cd little_sister
+git switch main
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `git clone …` | lädt das Repository herunter |
+| `cd little_sister` | wechselt in den Projektordner |
+| `git switch main` | wechselt auf den gewünschten Branch (für einen offenen PR dessen Branch angeben) |
+
+In Rider:
+
+1. **File → Open** und `LittleSister.slnx` öffnen.
+2. Oben rechts die Startkonfiguration **LittleSister.Api: http** wählen und starten. Die API läuft auf http://localhost:5080, Datenbank und Schlüssel liegen in `src/LittleSister.Api/data`.
+3. Tests: Fenster **Unit Tests** öffnen und **Run All** ausführen (Kamera-Tests brauchen ffmpeg).
+4. Oberfläche im Rider-Terminal (fish) starten:
+
+```fish
+cd web
+npm install
+npm run dev
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `cd web` | wechselt in den Frontend-Ordner |
+| `npm install` | installiert die Frontend-Pakete (nur beim ersten Mal oder nach Änderungen an `package.json`) |
+| `npm run dev` | startet die Oberfläche auf http://localhost:5173 und leitet `/api` an die laufende API weiter |
+
+5. http://localhost:5173 im Browser öffnen und die Einrichtung durchlaufen. Als Aufnahmeordner einen beschreibbaren absoluten Pfad angeben, z. B. `/home/<du>/little-sister/recordings`. Admins können ihn später unter **Kameras → Speicher** ändern.
+
+Von vorn beginnen: API stoppen und den Ordner `src/LittleSister.Api/data` löschen.
+
+### Bauen und Testen wie die CI
+
 Alles bauen und testen, genau wie die CI:
 
 ```bash

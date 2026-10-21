@@ -111,6 +111,12 @@ internal static class CameraEndpoints
         if (camera is null)
             return Results.NotFound();
 
+        // Alle Ordner merken, in denen diese Kamera je aufgenommen hat (Aufnahmeordner kann sich geändert haben)
+        var settings = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync();
+        var roots = await db.Segments.Where(s => s.CameraId == id).Select(s => s.StorageRoot).Distinct().ToListAsync();
+        if (!string.IsNullOrEmpty(settings?.RecordingsPath))
+            roots.Add(settings.RecordingsPath);
+
         db.Cameras.Remove(camera); // Segmente werden per Fremdschlüssel mitgelöscht
         await db.SaveChangesAsync();
         recording.RequestReload();
@@ -118,18 +124,17 @@ internal static class CameraEndpoints
 
         if (deleteRecordings == true)
         {
-            var settings = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync();
-            if (!string.IsNullOrEmpty(settings?.RecordingsPath))
+            var folders = roots.Where(r => r.Length > 0).Distinct().Select(r => SegmentFiles.CameraFolder(r, id)).ToList();
+            // Kurz warten, bis der Recorder ffmpeg beendet hat, dann aufräumen
+            _ = Task.Run(async () =>
             {
-                var folder = SegmentFiles.CameraFolder(settings.RecordingsPath, id);
-                // Kurz warten, bis der Recorder ffmpeg beendet hat, dann aufräumen
-                _ = Task.Run(async () =>
+                await Task.Delay(TimeSpan.FromSeconds(15));
+                foreach (var folder in folders)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(15));
                     try { if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true); }
-                    catch (IOException) { /* Wird beim nächsten Mal erneut versucht – oder bleibt liegen */ }
-                });
-            }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* Bleibt liegen, schadet aber nicht */ }
+                }
+            });
         }
         return Results.NoContent();
     }

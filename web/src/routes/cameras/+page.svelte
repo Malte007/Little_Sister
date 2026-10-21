@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { invalidate } from '$app/navigation';
 	import { api, ApiError } from '#lib/api.js';
 	import CameraCard from '#lib/components/CameraCard.svelte';
+	import Field from '#lib/components/Field.svelte';
 	import StorageBar from '#lib/components/StorageBar.svelte';
 	import { formatBytes } from '#lib/format.js';
 	import { i18n, t, tError } from '#lib/i18n/index.svelte.js';
@@ -19,20 +20,36 @@
 		return () => clearInterval(timer);
 	});
 
+	// Speichereinstellungen (nur Admins): Aufnahmeordner und Freispeichergrenze
 	let minFree = $state('');
-	let minFreeError = $state<string>();
+	let recordingsPath = $state('');
+	let errors = $state<Record<string, string>>({});
+	let saved = $state(false);
 	$effect(() => {
 		minFree = String(data.storage.minFreeGb);
+		recordingsPath = data.storage.recordingsPath;
 	});
+	const pathChanged = $derived(recordingsPath.trim() !== data.storage.recordingsPath);
 
-	async function saveMinFree() {
-		minFreeError = undefined;
+	async function saveStorage(event: SubmitEvent) {
+		event.preventDefault();
+		errors = {};
+		saved = false;
 		try {
-			await api('/api/storage', { method: 'PUT', body: { minFreeGb: Number(minFree) } });
+			await api('/api/storage', {
+				method: 'PUT',
+				body: { minFreeGb: Number(minFree), recordingsPath: recordingsPath.trim() }
+			});
 			await invalidate((url) => url.pathname === '/api/storage');
+			saved = true;
 		} catch (e) {
-			minFreeError =
-				e instanceof ApiError ? tError(e.field('minFreeGb') ?? e.code) : t('errors.network');
+			if (!(e instanceof ApiError)) errors = { general: t('errors.network') };
+			else if (e.field('recordingsPath') || e.field('minFreeGb'))
+				errors = {
+					recordingsPath: e.field('recordingsPath') ? tError(e.field('recordingsPath')) : '',
+					minFreeGb: e.field('minFreeGb') ? tError(e.field('minFreeGb')) : ''
+				};
+			else errors = { general: tError(e.code) };
 		}
 	}
 
@@ -72,24 +89,33 @@
 			})}
 		/>
 	{/if}
-	<p class="muted small">{t('storage.path')}: <code>{data.storage.recordingsPath}</code></p>
 
 	{#if isAdmin}
-		<form
-			class="minfree"
-			onsubmit={(e) => {
-				e.preventDefault();
-				saveMinFree();
-			}}
-		>
-			<div>
-				<label for="minfree">{t('storage.minFree')}</label>
-				<input id="minfree" type="number" min="0" step="1" bind:value={minFree} />
-				{#if minFreeError}<p class="error">{minFreeError}</p>{/if}
-				<p class="muted small">{t('storage.minFreeHint')}</p>
+		<form class="settings" onsubmit={saveStorage}>
+			{#if errors.general}<div class="alert">{errors.general}</div>{/if}
+			<Field
+				label={t('storage.path')}
+				bind:value={recordingsPath}
+				spellcheck="false"
+				hint={pathChanged ? t('storage.pathChangeHint') : t('storage.pathHint')}
+				error={errors.recordingsPath}
+			/>
+			<Field
+				label={t('storage.minFree')}
+				type="number"
+				min="0"
+				step="1"
+				bind:value={minFree}
+				hint={t('storage.minFreeHint')}
+				error={errors.minFreeGb}
+			/>
+			<div class="save">
+				<button type="submit" class="secondary">{t('common.save')}</button>
+				{#if saved}<span class="saved" transition:fade>{t('storage.saved')}</span>{/if}
 			</div>
-			<button type="submit" class="secondary">{t('common.save')}</button>
 		</form>
+	{:else}
+		<p class="muted small">{t('storage.path')}: <code>{data.storage.recordingsPath}</code></p>
 	{/if}
 </section>
 
@@ -125,17 +151,17 @@
 	code {
 		font-size: 0.8rem;
 	}
-	.minfree {
+	.settings {
+		margin-top: 1.5rem;
+		max-width: 36rem;
+	}
+	.save {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 1rem;
-		margin-top: 1rem;
-		max-width: 32rem;
 	}
-	.minfree input {
-		max-width: 10rem;
-	}
-	.minfree button {
-		margin-top: 1.6rem;
+	.saved {
+		color: var(--success);
+		font-size: 0.875rem;
 	}
 </style>

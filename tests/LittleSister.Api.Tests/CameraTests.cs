@@ -142,4 +142,33 @@ public class CameraTests
         Assert.Equal(25, storage.GetProperty("minFreeGb").GetDouble());
         Assert.True(storage.GetProperty("freeBytes").GetInt64() > 0);
     }
+
+    [Fact]
+    public async Task Aufnahmeordner_LaesstSichAendern()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+        var newPath = Path.Combine(factory.DataPath, "neue-platte");
+
+        (await admin.PutAsJsonAsync("/api/storage", new { minFreeGb = 10, recordingsPath = newPath })).EnsureSuccessStatusCode();
+
+        var storage = await admin.GetFromJsonAsync<JsonElement>("/api/storage");
+        Assert.Equal(newPath, storage.GetProperty("recordingsPath").GetString());
+        Assert.True(Directory.Exists(newPath));
+    }
+
+    [Fact]
+    public async Task Aufnahmeordner_RelativerPfad_WirdAbgelehnt()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+        var viewer = await factory.CreateUserClientAsync(admin, "oma", "Viewer");
+
+        var response = await admin.PutAsJsonAsync("/api/storage", new { minFreeGb = 10, recordingsPath = "relativ/pfad" });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("absolutePathRequired", await response.Content.ReadAsStringAsync());
+
+        var forbidden = await viewer.PutAsJsonAsync("/api/storage", new { minFreeGb = 10, recordingsPath = "/tmp" });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+    }
 }

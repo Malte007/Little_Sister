@@ -99,6 +99,11 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.Property<long>("StartUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("StorageRoot")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StartUtc");

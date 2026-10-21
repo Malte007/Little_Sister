@@ -171,6 +171,9 @@
 		"free": "{free} frei von {total}",
 		"minFree": "Mindestens frei halten (GB)",
 		"minFreeHint": "Wird es knapper, löscht Little Sister die ältesten Aufnahmen aller Kameras.",
-		"path": "Aufnahmeordner"
+		"path": "Aufnahmeordner",
+		"pathHint": "Hier legt Little Sister neue Aufnahmen ab.",
+		"pathChangeHint": "Neue Aufnahmen landen im neuen Ordner. Bestehende bleiben im bisherigen Ordner und werden dort weiter verwaltet und gelöscht.",
+		"saved": "Gespeichert"
 	}
 }

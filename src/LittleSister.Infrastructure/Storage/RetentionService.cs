@@ -62,13 +62,13 @@ public sealed class RetentionService(
                 var expired = await db.Segments
                     .Where(s => s.CameraId == camera.Id && !s.IsProtected && s.EndUtc < cutoff)
                     .ToListAsync(ct);
-                deleted += await DeleteAsync(db, root, expired, ct);
+                deleted += await DeleteAsync(db, expired, ct);
             }
 
             // 2) Kontingent der Kamera
             var used = await db.Segments.Where(s => s.CameraId == camera.Id).SumAsync(s => s.SizeBytes, ct);
             if (used > camera.QuotaBytes)
-                deleted += await DeleteAsync(db, root, await OldestToFreeAsync(db, used - camera.QuotaBytes, camera.Id, ct), ct);
+                deleted += await DeleteAsync(db, await OldestToFreeAsync(db, used - camera.QuotaBytes, camera.Id, ct), ct);
         }
 
         // 3) Globale Freispeichergrenze über alle Kameras
@@ -77,7 +77,7 @@ public sealed class RetentionService(
         if (available is { } free && free < required)
         {
             logger.LogWarning("Nur noch {Free:F1} GB frei (Grenze {Min} GB); lösche älteste Aufnahmen", free / (double)Gb, settings.MinFreeGb);
-            deleted += await DeleteAsync(db, root, await OldestToFreeAsync(db, required - free, null, ct), ct);
+            deleted += await DeleteAsync(db, await OldestToFreeAsync(db, required - free, null, ct), ct);
         }
 
         if (deleted > 0)
@@ -97,7 +97,7 @@ public sealed class RetentionService(
         return RetentionPolicy.SelectToFree(batch, bytesToFree);
     }
 
-    private async Task<int> DeleteAsync(LittleSisterDbContext db, string root, IReadOnlyList<Segment> segments, CancellationToken ct)
+    private async Task<int> DeleteAsync(LittleSisterDbContext db, IReadOnlyList<Segment> segments, CancellationToken ct)
     {
         if (segments.Count == 0)
             return 0;
@@ -106,12 +106,13 @@ public sealed class RetentionService(
         {
             try
             {
-                File.Delete(Path.Combine(root, segment.RelativePath));
-                DeleteEmptyDirectory(Path.GetDirectoryName(Path.Combine(root, segment.RelativePath))!);
+                // Jedes Segment liegt in dem Ordner, der bei seiner Aufnahme galt
+                File.Delete(segment.FullPath);
+                DeleteEmptyDirectory(Path.GetDirectoryName(segment.FullPath)!);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                logger.LogWarning(ex, "Datei {Path} konnte nicht gelöscht werden", segment.RelativePath);
+                logger.LogWarning(ex, "Datei {Path} konnte nicht gelöscht werden", segment.FullPath);
             }
         }
 

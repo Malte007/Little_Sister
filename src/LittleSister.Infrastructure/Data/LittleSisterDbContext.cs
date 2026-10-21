@@ -48,6 +48,8 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
         {
             e.ToTable("Segments");
             e.Property(s => s.RelativePath).HasMaxLength(500);
+            e.Property(s => s.StorageRoot).HasMaxLength(1000);
+            e.Ignore(s => s.FullPath);
             // Ringspeicher und Zeitleiste suchen immer je Kamera nach Zeit
             e.HasIndex(s => new { s.CameraId, s.StartUtc });
             e.HasIndex(s => s.StartUtc);

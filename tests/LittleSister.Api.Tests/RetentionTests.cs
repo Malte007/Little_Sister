@@ -36,7 +36,7 @@ public class RetentionTests
             var file = Path.Combine(factory.RecordingsPath, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             await File.WriteAllBytesAsync(file, new byte[16]);
-            db.Segments.Add(new Segment { CameraId = id, StartUtc = start, EndUtc = start.AddHours(1), RelativePath = relative, SizeBytes = 1024 * 1024 });
+            db.Segments.Add(new Segment { CameraId = id, StorageRoot = factory.RecordingsPath, StartUtc = start, EndUtc = start.AddHours(1), RelativePath = relative, SizeBytes = 1024 * 1024 });
         }
         await db.SaveChangesAsync();
         return id;
@@ -100,5 +100,22 @@ public class RetentionTests
 
         var remaining = Assert.Single(await SegmentsAsync(factory));
         Assert.True(remaining.IsProtected);
+    }
+
+    [Fact]
+    public async Task NachOrdnerwechsel_WerdenAlteAufnahmenImAltenOrdnerGeloescht()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+        await SeedAsync(factory, admin, hours: 48, quotaGb: 100, maxDays: 1);
+        var oldFiles = (await SegmentsAsync(factory)).Select(s => s.FullPath).ToList();
+
+        var newPath = Path.Combine(factory.DataPath, "neue-platte");
+        (await admin.PutAsJsonAsync("/api/storage", new { minFreeGb = 0, recordingsPath = newPath })).EnsureSuccessStatusCode();
+        await factory.Services.GetRequiredService<RetentionService>().RunOnceAsync(CancellationToken.None);
+
+        var remaining = await SegmentsAsync(factory);
+        Assert.All(remaining, s => Assert.Equal(factory.RecordingsPath, s.StorageRoot));
+        Assert.Equal(oldFiles.Count - remaining.Count, oldFiles.Count(f => !File.Exists(f)));
     }
 }
