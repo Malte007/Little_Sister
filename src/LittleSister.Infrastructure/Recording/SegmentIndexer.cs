@@ -39,6 +39,7 @@ public sealed class SegmentIndexer(IServiceScopeFactory scopes, ILogger<SegmentI
             StorageRoot = root,
             RelativePath = relative,
             SizeBytes = info.Length,
+            InitBytes = Mp4Boxes.FindInitSize(target) ?? 0,
         };
 
         await using var scope = scopes.CreateAsyncScope();

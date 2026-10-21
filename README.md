@@ -5,7 +5,7 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 - Backend: ASP.NET Core (.NET 10), EF Core mit SQLite
 - Frontend: SvelteKit + TypeScript (als statische Single-Page-App vom Backend ausgeliefert)
 - Live-Ansicht: go2rtc (WebRTC, MSE als Rückfall), von Little Sister selbst gestartet
-- Betrieb: Linux, Docker (z. B. Unraid)
+- Betrieb: Ubuntu-Server als systemd-Dienst, alternativ Docker
 
 ## Stand
 
@@ -19,27 +19,80 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Ringspeicher (Kontingent pro Kamera, maximale Aufbewahrung, globale Freispeichergrenze) | fertig |
 | Live-Ansicht (Kachelraster, Einzelansicht mit voller Auflösung und Ton) | fertig |
 | Kamerastatus live in der Oberfläche (SignalR) | fertig |
-| Zeitleiste und Wiedergabe, Aufnahme bei Bewegung | folgt |
+| Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
+| Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | folgt |
+| Aufnahme bei Bewegung (ONVIF-Ereignisse, Marker auf der Zeitleiste) | folgt |
 
-## Starten mit Docker
+## Installation auf einem Ubuntu-Server
 
-```bash
-docker compose up -d --build
+Little Sister läuft als systemd-Dienst direkt auf dem Server. Das Skript `scripts/install-ubuntu.sh` baut Oberfläche und Backend, installiert go2rtc, legt den Dienstbenutzer `littlesister` an und richtet den Dienst ein. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten.
+
+Einmalig die Voraussetzungen installieren (die Befehle funktionieren in fish und bash):
+
+```fish
+sudo apt update
+sudo apt install -y git curl ffmpeg dotnet-sdk-10.0
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
 
 | Zeile | Wirkung |
 | --- | --- |
-| `docker compose up -d --build` | baut das Image aus dem Quellcode und startet Little Sister im Hintergrund |
+| `sudo apt update` | lädt die aktuellen Paketlisten |
+| `sudo apt install -y git curl ffmpeg dotnet-sdk-10.0` | installiert git, curl, ffmpeg (Aufnahme) und das .NET 10 SDK (Bauen). Findet apt `dotnet-sdk-10.0` nicht (ältere Ubuntu-Versionen), vorher `sudo add-apt-repository ppa:dotnet/backports` ausführen |
+| `curl … setup_24.x \| sudo -E bash -` | richtet die Paketquelle für Node.js 24 ein (nur zum Bauen der Oberfläche nötig) |
+| `sudo apt install -y nodejs` | installiert Node.js 24 mit npm |
 
-Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`.
+Projekt holen und installieren:
 
-Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
+```fish
+git clone https://github.com/malte007/little_sister.git
+cd little_sister
+./scripts/install-ubuntu.sh
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `git clone …` | lädt das Repository herunter (privat: mit GitHub-Benutzer und Token anmelden) |
+| `cd little_sister` | wechselt in den Projektordner |
+| `./scripts/install-ubuntu.sh` | baut alles, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
+
+Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`).
+
+| Was | Wo |
+| --- | --- |
+| Programm | `/opt/little-sister/app` |
+| Datenbank, Schlüssel, Sicherungen | `/var/lib/little-sister` |
+| Einstellungen (Umgebungsvariablen, siehe unten) | `/etc/little-sister/little-sister.env` |
+| Protokoll | `journalctl -u little-sister -f` |
+
+Aktualisieren:
+
+```fish
+cd little_sister
+git pull
+./scripts/install-ubuntu.sh
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `cd little_sister` | wechselt in den Projektordner |
+| `git pull` | holt den neuesten Stand |
+| `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu; Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert |
+
+Ist eine Firewall (ufw) aktiv, müssen die Ports 8080 (Oberfläche) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
+
+## Betrieb
 
 ### Live-Ansicht
 
 Little Sister startet go2rtc selbst (im Docker-Image enthalten) und hält dessen Streams mit den Kameras in Sync. Die go2rtc-API lauscht nur auf `127.0.0.1`; der Browser bekommt Bild und Standbilder ausschließlich über die angemeldete Little-Sister-API. Die Kacheln nutzen den Substream, die Einzelansicht wahlweise den Hauptstream.
 
 Für WebRTC (Latenz unter einer Sekunde) muss Port **8555 (TCP und UDP)** vom Browser aus erreichbar sein. Ist er es nicht, fällt der Player automatisch auf MSE über die normale Verbindung zurück (etwas mehr Verzögerung). Fehlt go2rtc, ist nur die Live-Ansicht aus, die Aufnahme läuft weiter.
+
+### Wiedergabe und Export
+
+Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wurde. Ein Klick springt an die Stelle, Lücken werden beim Abspielen übersprungen. Abgespielt wird per HLS direkt aus den gespeicherten Segmenten, ohne Umwandlung und ohne CPU-Last auf dem Server. Der Export setzt den markierten Zeitraum ebenfalls ohne Umwandlung zu einer MP4-Datei zusammen; er beginnt am Schlüsselbild vor dem gewählten Anfang. Tagesgrenzen und Uhrzeiten richten sich nach der Zeitzone der Installation.
 
 ### Ablage der Aufnahmen
 
@@ -52,12 +105,12 @@ Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player 
 
 ### Konfiguration
 
-Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstrich trennt Ebenen):
+Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstrich trennt Ebenen), auf dem Ubuntu-Server in `/etc/little-sister/little-sister.env`, danach `sudo systemctl restart little-sister`:
 
 | Variable | Standard | Bedeutung |
 | --- | --- | --- |
-| `LittleSister__DataPath` | `/data` (Docker) | Datenbank, Schlüssel, Sicherungen |
-| `LittleSister__DefaultRecordingsPath` | `/recordings` (Docker) | Vorschlag im Einrichtungsassistenten |
+| `LittleSister__DataPath` | `/var/lib/little-sister` (Ubuntu), `/data` (Docker) | Datenbank, Schlüssel, Sicherungen |
+| `LittleSister__DefaultRecordingsPath` | `/srv/little-sister/recordings` (Ubuntu), `/recordings` (Docker) | Vorschlag im Einrichtungsassistenten |
 | `LittleSister__Database__Provider` | `Sqlite` | weitere Provider folgen |
 | `LittleSister__Database__ConnectionString` | SQLite-Datei im Datenordner | eigene Verbindung |
 | `LittleSister__KeysPath` | `<DataPath>/keys` | Schlüssel für Cookies und Kamera-Passwörter, getrennt von der DB ablegbar |
@@ -68,6 +121,87 @@ Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstri
 | `LittleSister__Live__WebRtcPort` | `8555` | WebRTC-Port (TCP und UDP) |
 | `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse, z. B. `192.168.1.10:8555` bei Docker-Bridge oder NAT |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
+
+## Alternativ: Docker (z. B. Unraid)
+
+Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg. Für Docker-Hosts wie Unraid gibt es ein fertiges Image.
+
+### Fertiges Image von GitHub (ghcr.io)
+
+Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Normale Pushes, Pull Requests und Merges starten die CI gar nicht.
+
+```
+ghcr.io/malte007/little_sister:0.1.1       genau diese Version (Tag v0.1.1)
+ghcr.io/malte007/little_sister:0.1.2-test  Testversion (Tag mit Zusatz nach "-")
+ghcr.io/malte007/little_sister:latest      die neueste fertige Version (Tags ohne Zusatz)
+```
+
+Eine Version veröffentlichen geht in Rider über **Git → New Tag…** (Name z. B. `v0.1.1`) und danach **Git → Push…** mit Haken bei **Push Tags**. Im Terminal (fish):
+
+```fish
+git tag v0.1.1
+git push Github v0.1.1
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `git tag v0.1.1` | markiert den aktuellen Commit als Version 0.1.1 |
+| `git push Github v0.1.1` | schickt den Tag zu GitHub (`Github` ist der Name deines Remotes); die CI baut dann das Image |
+
+Zu sehen ist es in deinem GitHub-Profil unter **Packages**. Weil das Repository privat ist, ist auch das Paket privat. Ein Server braucht daher eine Anmeldung mit einem Token, bevor er es herunterladen darf.
+
+### Auf Unraid einrichten
+
+**1. Token anlegen.** Auf GitHub: **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**. Name z. B. `unraid`, Ablaufdatum nach Wahl, nur den Haken **`read:packages`** setzen. Den Token kopieren, er wird nur einmal angezeigt. (Fein abgestufte Tokens unterstützen die Container Registry nach meinem Stand nicht.)
+
+**2. Unraid bei ghcr.io anmelden.** Im Unraid-Webinterface oben rechts das Terminal **>_** öffnen. Dort läuft bash, nicht fish:
+
+```bash
+docker login ghcr.io -u malte007
+mkdir -p /boot/config/docker-auth && cp /root/.docker/config.json /boot/config/docker-auth/
+echo 'mkdir -p /root/.docker && cp /boot/config/docker-auth/config.json /root/.docker/' >> /boot/config/go
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `docker login ghcr.io -u malte007` | meldet Docker bei ghcr.io an; als Passwort den Token einfügen |
+| `mkdir … && cp …` | sichert die Anmeldung auf dem USB-Stick, denn `/root` liegt auf Unraid im Arbeitsspeicher und ist nach einem Neustart leer |
+| `echo … >> /boot/config/go` | stellt die Anmeldung bei jedem Start von Unraid wieder her (`go` wird beim Hochfahren ausgeführt) |
+
+Die Anmeldung wird nur zum Herunterladen und für „Nach Updates suchen“ gebraucht. Ein laufender Container läuft auch ohne sie weiter.
+
+**3. Container anlegen.** **Docker → Container hinzufügen**, Vorlage leer lassen:
+
+| Feld | Wert | Hinweis |
+| --- | --- | --- |
+| Name | `little-sister` | |
+| Repository | `ghcr.io/malte007/little_sister:latest` | neueste fertige Version; für eine Testversion z. B. `…:0.1.2-test` |
+| Netzwerktyp | `Host` | nötig für die ONVIF-Kamerasuche (Multicast) |
+| Erweiterte Ansicht → Zusätzliche Parameter | `--user 99:100` | läuft als Unraid-Standardbenutzer `nobody:users`, sonst fehlen Schreibrechte auf den Shares |
+| Pfad `/data` | `/mnt/user/appdata/little-sister` | Datenbank, Schlüssel, Sicherungen |
+| Pfad `/recordings` | z. B. `/mnt/user/aufnahmen/little-sister` | Aufnahmen; Share am besten ohne Cache, sonst schiebt der Mover die Dateien ständig hin und her |
+| Variable `TZ` | `Europe/Berlin` | |
+| WebUI | `http://[IP]:[PORT:8080]/` | |
+
+Mit Host-Netzwerk belegt Little Sister die Ports **8080** (Oberfläche), **8555 TCP/UDP** (WebRTC) und **1984** (go2rtc, nur intern). Läuft auf Unraid schon Frigate oder ein anderes go2rtc, die Ports per Variable umlegen: `ASPNETCORE_HTTP_PORTS`, `LittleSister__Live__WebRtcPort`, `LittleSister__Live__ApiPort`.
+
+Danach `http://<unraid-ip>:8080` öffnen und die Einrichtung durchklicken; als Aufnahmeordner `/recordings` lassen.
+
+**4. Aktualisieren.** Nach dem Push eines neuen Versions-Tags ist das Image nach einigen Minuten fertig (Reiter **Actions** auf GitHub). Dann auf Unraid unter **Docker → Nach Updates suchen** und beim Container **Update anwenden**. Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank nach `/data/backups` gesichert.
+
+### Selbst bauen mit docker compose
+
+```bash
+docker compose up -d --build
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `docker compose up -d --build` | baut das Image aus dem Quellcode und startet Little Sister im Hintergrund |
+
+Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`; Einstellungen werden in `docker-compose.yml` unter `environment` gesetzt.
+
+Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
 
 ## Entwickeln
 
@@ -178,7 +312,7 @@ dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/Little
 
 ## CI (GitHub und Gitea)
 
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Bei Pull Requests wird gebaut und getestet, auf `main` und bei Tags `v*` zusätzlich das Image veröffentlicht.
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Sie startet nur, wenn ein Versions-Tag `v*` gepusht wird: Dann wird gebaut, getestet und das Docker-Image veröffentlicht (siehe „Fertiges Image von GitHub“). Ohne Tag lässt sie sich unter GitHub → Actions → CI → „Run workflow“ von Hand starten; dann wird nur gebaut und getestet. Vor einem Merge daher lokal testen (siehe „Bauen und Testen wie die CI“).
 
 Für Gitea unter *Repository → Einstellungen → Actions*:
 

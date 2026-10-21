@@ -1,6 +1,7 @@
 using LittleSister.Infrastructure.Data;
 using LittleSister.Infrastructure.Live;
 using LittleSister.Infrastructure.Onvif;
+using LittleSister.Infrastructure.Playback;
 using LittleSister.Infrastructure.Recording;
 using LittleSister.Infrastructure.Security;
 using LittleSister.Infrastructure.Storage;
@@ -50,6 +51,7 @@ public static class DependencyInjection
         services.AddSingleton<SegmentIndexer>();
         services.AddSingleton<ICameraInputFactory, RtspInputFactory>();
         services.AddSingleton<RecordingSupervisor>();
+        services.AddSingleton<ClipExport>();
         services.AddHostedService(sp => sp.GetRequiredService<RecordingSupervisor>());
         services.AddSingleton<IFreeSpaceProvider, DriveFreeSpaceProvider>();
         services.AddSingleton<RetentionService>();

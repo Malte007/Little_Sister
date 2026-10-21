@@ -5,7 +5,7 @@
 
 <main class="error-page">
 	<h1>{page.status}</h1>
-	<p class="muted">{page.status === 404 ? t('errors.unknown') : t('errors.network')}</p>
+	<p class="muted">{page.status === 404 ? t('errors.notFound') : t('errors.network')}</p>
 	<a class="button" href="/">{t('nav.overview')}</a>
 </main>
 

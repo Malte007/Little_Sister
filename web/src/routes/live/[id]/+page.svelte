@@ -45,6 +45,7 @@
 		<button class="secondary" onclick={() => (audio = !audio)} aria-pressed={audio}>
 			{audio ? t('live.audioOn') : t('live.audioOff')}
 		</button>
+		<a class="button secondary" href="/recordings/{camera.id}">{t('nav.recordings')}</a>
 		{#if canFullscreen}
 			<button class="secondary" onclick={toggleFullscreen}>{t('live.fullscreen')}</button>
 		{/if}

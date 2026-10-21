@@ -15,6 +15,7 @@ web/build/
 # Lokale Laufzeitdaten
 data/
 recordings/
+!web/src/routes/recordings/
 *.db
 *.db-shm
 *.db-wal

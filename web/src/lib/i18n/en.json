@@ -16,7 +16,8 @@
 	"nav": {
 		"overview": "Overview",
 		"users": "Users",
-		"cameras": "Cameras"
+		"cameras": "Cameras",
+		"recordings": "Recordings"
 	},
 	"roles": {
 		"Admin": "Administrator",
@@ -105,7 +106,12 @@
 		"streamTimeout": "The camera does not answer in time.",
 		"noVideo": "The stream contains no video.",
 		"ffprobeMissing": "ffprobe is not installed on the server.",
-		"invalidRotation": "Please choose 0, 90, 180 or 270 degrees."
+		"invalidRotation": "Please choose 0, 90, 180 or 270 degrees.",
+		"endBeforeStart": "The end must be after the start.",
+		"exportTooLong": "At most 24 hours at once.",
+		"noRecordings": "There are no recordings in this period.",
+		"exportFailed": "The export failed.",
+		"notFound": "This page does not exist."
 	},
 	"status": {
 		"Idle": "Off",
@@ -196,5 +202,37 @@
 		"codecUnsupported": "This browser cannot play {codec}.",
 		"fullscreen": "Fullscreen",
 		"fullscreenHint": "Double-click for fullscreen"
+	},
+	"playback": {
+		"title": "Recordings",
+		"camera": "Camera",
+		"date": "Day",
+		"previousDay": "Previous day with recordings",
+		"nextDay": "Next day with recordings",
+		"toLive": "Live view",
+		"noRecordings": "There are no recordings on this day.",
+		"noCameras": "No cameras set up yet.",
+		"failed": "This browser cannot play the recording.",
+		"play": "Play",
+		"pause": "Pause",
+		"speed": "Speed",
+		"timeline": "Timeline",
+		"zoom": "Range",
+		"zoomIn": "Zoom in",
+		"zoomOut": "Zoom out",
+		"wholeDay": "Whole day",
+		"zoom1": "6 hours",
+		"zoom2": "1 hour",
+		"zoom3": "15 minutes",
+		"export": "Export",
+		"exportHint": "Mark the period on the timeline by dragging, or set start and end at the playback position. The export begins at the preceding keyframe, so up to a few seconds earlier.",
+		"setStart": "Start here",
+		"setEnd": "End here",
+		"download": "Download as MP4",
+		"clear": "Clear selection",
+		"endBeforeStart": "The end must be after the start.",
+		"exportTooLong": "At most 24 hours at once.",
+		"zoom4": "3 minutes",
+		"timelineHelp": "Click to jump · drag to mark for export · wheel zooms · drag the scale to pan"
 	}
 }
