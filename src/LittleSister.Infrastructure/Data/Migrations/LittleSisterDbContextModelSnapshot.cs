@@ -142,6 +142,9 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.Property<long>("SetupCompletedAtUtc")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("ThumbnailsEnabled")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasMaxLength(100)

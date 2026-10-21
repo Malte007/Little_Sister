@@ -20,14 +20,16 @@
 		return () => clearInterval(timer);
 	});
 
-	// Speichereinstellungen (nur Admins): Aufnahmeordner und Freispeichergrenze
+	// Speichereinstellungen (nur Admins): Aufnahmeordner, Freispeichergrenze und Vorschaubilder
 	let minFree = $state('');
 	let recordingsPath = $state('');
+	let thumbnails = $state(true);
 	let errors = $state<Record<string, string>>({});
 	let saved = $state(false);
 	$effect(() => {
 		minFree = String(data.storage.minFreeGb);
 		recordingsPath = data.storage.recordingsPath;
+		thumbnails = data.storage.thumbnailsEnabled;
 	});
 	const pathChanged = $derived(recordingsPath.trim() !== data.storage.recordingsPath);
 
@@ -38,7 +40,11 @@
 		try {
 			await api('/api/storage', {
 				method: 'PUT',
-				body: { minFreeGb: Number(minFree), recordingsPath: recordingsPath.trim() }
+				body: {
+					minFreeGb: Number(minFree),
+					recordingsPath: recordingsPath.trim(),
+					thumbnailsEnabled: thumbnails
+				}
 			});
 			await invalidate((url) => url.pathname === '/api/storage');
 			saved = true;
@@ -109,6 +115,13 @@
 				hint={t('storage.minFreeHint')}
 				error={errors.minFreeGb}
 			/>
+			<label class="toggle">
+				<input type="checkbox" bind:checked={thumbnails} />
+				<span>
+					<strong>{t('storage.thumbnails')}</strong>
+					<span class="muted small">{t('storage.thumbnailsHint')}</span>
+				</span>
+			</label>
 			<div class="save">
 				<button type="submit" class="secondary">{t('common.save')}</button>
 				{#if saved}<span class="saved" transition:fade>{t('storage.saved')}</span>{/if}
@@ -154,6 +167,24 @@
 	.settings {
 		margin-top: 1.5rem;
 		max-width: 36rem;
+	}
+	.toggle {
+		display: flex;
+		gap: 0.75rem;
+		align-items: flex-start;
+		font-weight: 400;
+		margin-bottom: 1.25rem;
+		padding: 0.9rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		cursor: pointer;
+	}
+	.toggle input {
+		margin-top: 0.25rem;
+	}
+	.toggle span {
+		display: flex;
+		flex-direction: column;
 	}
 	.save {
 		display: flex;

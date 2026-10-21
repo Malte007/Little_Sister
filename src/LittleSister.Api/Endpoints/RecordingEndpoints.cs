@@ -18,22 +18,27 @@ internal static class RecordingEndpoints
         group.MapGet("/{id:guid}/day", Day);
         group.MapGet("/{id:guid}/day/{date}/index.m3u8", Playlist);
         group.MapGet("/segments/{segmentId:long}.mp4", SegmentFile);
+        group.MapGet("/segments/{segmentId:long}/thumbnails.jpg", Thumbnails);
         group.MapGet("/{id:guid}/export", Export);
     }
 
-    internal sealed record SegmentDto(long Id, DateTimeOffset StartUtc, DateTimeOffset EndUtc);
+    /// <param name="Thumbnails">Anzahl der Vorschaubilder im Bildstreifen des Segments, eines je <see cref="DayDto.ThumbnailSeconds"/>.</param>
+    internal sealed record SegmentDto(long Id, DateTimeOffset StartUtc, DateTimeOffset EndUtc, int Thumbnails);
 
     /// <summary>Ereignismarker auf der Zeitleiste (z. B. Bewegung); folgen mit der ereignisgesteuerten Aufnahme.</summary>
     internal sealed record EventDto(DateTimeOffset TimeUtc, string Kind);
 
     /// <param name="Segments">Abspielbare Segmente in Playlist-Reihenfolge; die Oberfläche rechnet damit Uhrzeit und Abspielposition um.</param>
     /// <param name="PreviousDate">Letzter Tag davor mit Aufnahmen, für die Blätter-Knöpfe.</param>
+    /// <param name="ThumbnailSeconds">Abstand der Vorschaubilder in Sekunden; 0 = Vorschaubilder ausgeschaltet.</param>
     internal sealed record DayDto(
         DateOnly Date, DateOnly Today, string TimeZoneId, DateTimeOffset FromUtc, DateTimeOffset ToUtc,
-        IReadOnlyList<SegmentDto> Segments, IReadOnlyList<EventDto> Events, DateOnly? PreviousDate, DateOnly? NextDate);
+        IReadOnlyList<SegmentDto> Segments, IReadOnlyList<EventDto> Events, DateOnly? PreviousDate, DateOnly? NextDate,
+        int ThumbnailSeconds);
 
     /// <param name="date">Tag in der Zeitzone der Installation; ohne Angabe heute.</param>
-    private static async Task<IResult> Day(Guid id, DateOnly? date, LittleSisterDbContext db, TimeProvider time, CancellationToken ct)
+    private static async Task<IResult> Day(
+        Guid id, DateOnly? date, LittleSisterDbContext db, SegmentThumbnails thumbnails, TimeProvider time, CancellationToken ct)
     {
         if (!await db.Cameras.AnyAsync(c => c.Id == id, ct))
             return Results.NotFound();
@@ -51,9 +56,10 @@ internal static class RecordingEndpoints
 
         return Results.Ok(new DayDto(
             day.Date, today, zone.Id, day.FromUtc, day.ToUtc,
-            segments.Select(s => new SegmentDto(s.Id, s.StartUtc, s.EndUtc)).ToList(), [],
+            segments.Select(s => new SegmentDto(s.Id, s.StartUtc, s.EndUtc, SegmentThumbnails.CountOf(s))).ToList(), [],
             previous is { } p ? RecordingDay.DateOf(p, zone) : null,
-            next is { } n ? RecordingDay.DateOf(n, zone) : null));
+            next is { } n ? RecordingDay.DateOf(n, zone) : null,
+            await thumbnails.IsEnabledAsync(ct) ? SegmentThumbnails.IntervalSeconds : 0));
     }
 
     private static async Task<IResult> Playlist(Guid id, DateOnly date, HttpContext http, LittleSisterDbContext db, CancellationToken ct)
@@ -82,6 +88,22 @@ internal static class RecordingEndpoints
         // Segmente ändern sich nach dem Schreiben nie mehr
         http.Response.Headers.CacheControl = "private, max-age=86400";
         return Results.File(segment.FullPath, "video/mp4", enableRangeProcessing: true);
+    }
+
+    /// <summary>Bildstreifen eines Segments; fehlt er noch (z. B. ältere Aufnahmen), wird er jetzt erzeugt,
+    /// sofern Vorschaubilder eingeschaltet sind.</summary>
+    private static async Task<IResult> Thumbnails(long segmentId, HttpContext http, LittleSisterDbContext db, SegmentThumbnails thumbnails, CancellationToken ct)
+    {
+        var segment = await db.Segments.AsNoTracking().FirstOrDefaultAsync(s => s.Id == segmentId, ct);
+        if (segment is null)
+            return Results.NotFound();
+        var exists = File.Exists(SegmentThumbnails.PathOf(segment))
+            || (await thumbnails.IsEnabledAsync(ct) && await thumbnails.EnsureAsync(segment).WaitAsync(ct));
+        if (!exists)
+            return Results.NotFound();
+
+        http.Response.Headers.CacheControl = "private, max-age=86400";
+        return Results.File(SegmentThumbnails.PathOf(segment), "image/jpeg");
     }
 
     private static async Task<IResult> Export(

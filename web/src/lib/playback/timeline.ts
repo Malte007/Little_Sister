@@ -5,13 +5,17 @@ export interface TimedSegment {
 	id: number;
 	startUtc: string;
 	endUtc: string;
+	/** Anzahl der Vorschaubilder im Bildstreifen */
+	thumbnails?: number;
 }
 
 /** Ein Segment mit Uhrzeit (ms seit 1970) und Position im Video (s). */
 export interface MapEntry {
+	id: number;
 	start: number;
 	end: number;
 	media: number;
+	thumbnails: number;
 }
 
 /** Zeitspanne in ms seit 1970. */
@@ -26,7 +30,7 @@ export function buildMap(segments: TimedSegment[]): MapEntry[] {
 	return segments.map((s) => {
 		const start = Date.parse(s.startUtc);
 		const end = Date.parse(s.endUtc);
-		const entry = { start, end, media };
+		const entry = { id: s.id, start, end, media, thumbnails: s.thumbnails ?? 1 };
 		// Wie die Playlist: drei Nachkommastellen, mindestens 1 ms
 		media += Math.max(Math.round(end - start), 1) / 1000;
 		return entry;
@@ -60,6 +64,24 @@ export function toMedia(map: MapEntry[], wall: number): number | null {
 		if (wall < e.end) return e.media + (wall - e.start) / 1000;
 	}
 	return null;
+}
+
+/** Index des Segments, das die Uhrzeit enthält; -1 in einer Lücke. */
+export function segmentAt(map: MapEntry[], wall: number): number {
+	let lo = 0;
+	let hi = map.length - 1;
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1;
+		if (wall < map[mid].start) hi = mid - 1;
+		else if (wall >= map[mid].end) lo = mid + 1;
+		else return mid;
+	}
+	return -1;
+}
+
+/** Beginn der nächsten Aufnahme nach der Uhrzeit; null, wenn keine mehr folgt. */
+export function nextStart(map: MapEntry[], wall: number): number | null {
+	return map.find((e) => e.start > wall)?.start ?? null;
 }
 
 /** Fasst aneinanderliegende Segmente für die Anzeige zu Blöcken zusammen (kleine Lücken zählen nicht). */

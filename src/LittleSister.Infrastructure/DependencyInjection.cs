@@ -52,6 +52,8 @@ public static class DependencyInjection
         services.AddSingleton<ICameraInputFactory, RtspInputFactory>();
         services.AddSingleton<RecordingSupervisor>();
         services.AddSingleton<ClipExport>();
+        services.AddSingleton<SegmentThumbnails>();
+        services.AddHostedService(sp => sp.GetRequiredService<SegmentThumbnails>());
         services.AddHostedService(sp => sp.GetRequiredService<RecordingSupervisor>());
         services.AddSingleton<IFreeSpaceProvider, DriveFreeSpaceProvider>();
         services.AddSingleton<RetentionService>();

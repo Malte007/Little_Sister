@@ -2,6 +2,7 @@ using LittleSister.Core.Recording;
 using LittleSister.Core.Settings;
 using LittleSister.Core.Storage;
 using LittleSister.Infrastructure.Data;
+using LittleSister.Infrastructure.Playback;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -108,6 +109,7 @@ public sealed class RetentionService(
             {
                 // Jedes Segment liegt in dem Ordner, der bei seiner Aufnahme galt
                 File.Delete(segment.FullPath);
+                File.Delete(SegmentThumbnails.PathOf(segment));
                 DeleteEmptyDirectory(Path.GetDirectoryName(segment.FullPath)!);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -186,7 +186,9 @@
 		"path": "Aufnahmeordner",
 		"pathHint": "Hier legt Little Sister neue Aufnahmen ab.",
 		"pathChangeHint": "Neue Aufnahmen landen im neuen Ordner. Bestehende bleiben im bisherigen Ordner und werden dort weiter verwaltet und gelöscht.",
-		"saved": "Gespeichert"
+		"saved": "Gespeichert",
+		"thumbnails": "Vorschaubilder für die Zeitleiste",
+		"thumbnailsHint": "Nach jeder Aufnahme entsteht ein Bildstreifen (ein Bild alle 10 Sekunden). Das braucht etwas Rechenzeit; ausgeschaltet entstehen keine neuen Bilder."
 	},
 	"live": {
 		"connecting": "Verbindet …",
@@ -233,6 +235,10 @@
 		"endBeforeStart": "Das Ende muss nach dem Anfang liegen.",
 		"exportTooLong": "Höchstens 24 Stunden am Stück.",
 		"zoom4": "3 Minuten",
-		"timelineHelp": "Klicken springt · Ziehen markiert für den Export · Mausrad zoomt · Skala ziehen verschiebt"
+		"timelineHelp": "Klicken springt · Ziehen markiert für den Export · Mausrad zoomt · Skala ziehen verschiebt",
+		"noRecordingNow": "Keine Aufnahme zu dieser Zeit",
+		"addCamera": "Kamera hinzufügen",
+		"removeCamera": "Kamera entfernen",
+		"downloadFor": "{name} herunterladen"
 	}
 }

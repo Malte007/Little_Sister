@@ -20,6 +20,9 @@ public sealed class SystemSettings
     /// <summary>Globale Freispeichergrenze in GB: wird sie unterschritten, löscht der Ringspeicher die ältesten Aufnahmen.</summary>
     public double MinFreeGb { get; set; } = 10;
 
+    /// <summary>Vorschaubilder für die Zeitleiste erzeugen; ausgeschaltet spart das etwas Rechenzeit.</summary>
+    public bool ThumbnailsEnabled { get; set; } = true;
+
     /// <summary>Zeitpunkt, zu dem die Ersteinrichtung abgeschlossen wurde.</summary>
     public DateTimeOffset SetupCompletedAtUtc { get; set; }
 }
