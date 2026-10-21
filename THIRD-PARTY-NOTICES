@@ -70,6 +70,9 @@ Lizenz: MIT (Volltext in Abschnitt A)
                            https://github.com/sveltejs/devalue
   clsx            2.1.1    Copyright (c) Luke Edwards
                            https://github.com/lukeed/clsx
+  @microsoft/signalr 10.0.11
+                           Copyright (c) .NET Foundation and Contributors
+                           https://github.com/dotnet/aspnetcore
 
 Reine Werkzeuge für Bau und Test (Vite, TypeScript, Prettier, Vitest, xUnit,
 coverlet u. a.) werden nicht ausgeliefert und sind hier nicht aufgeführt.
