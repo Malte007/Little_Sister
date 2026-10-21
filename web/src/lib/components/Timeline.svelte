@@ -37,7 +37,7 @@
 	// Ausschnitte: ganzer Tag bis 3 Minuten
 	const zooms = [0, 6 * 3_600_000, 3_600_000, 15 * 60_000, 3 * 60_000];
 	const maxZoom = zooms.length - 1;
-	const dwellMs = 700;
+	const dwellMs = 1200;
 
 	// Gewählte Vergrößerung (Knöpfe, Mausrad) und zusätzliche Stufen der Lupe
 	let baseZoom = $state(0);
@@ -107,14 +107,14 @@
 		ticks(viewStart, viewEnd, tickStep(span), (t) => zoneOffset(timeZone, t))
 	);
 
-	// Lupe: bleibt die Maus kurz stehen, eine Stufe näher heran
+	// Lupe: bleibt die Maus gut eine Sekunde stehen, eine Stufe näher heran
 	let dwell: ReturnType<typeof setTimeout> | undefined;
 	function armDwell() {
 		clearTimeout(dwell);
 		dwell = setTimeout(() => {
-			if (!hover || zoom >= maxZoom) return;
-			setZoom(baseZoom, lupe + 1, hover.time, hover.x / Math.max(width, 1));
-			armDwell();
+			// Höchstens eine Stufe näher als die gewählte Vergrößerung
+			if (!hover || lupe > 0 || zoom >= maxZoom) return;
+			setZoom(baseZoom, 1, hover.time, hover.x / Math.max(width, 1));
 		}, dwellMs);
 	}
 	onDestroy(() => clearTimeout(dwell));
