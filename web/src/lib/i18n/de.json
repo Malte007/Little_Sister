@@ -233,6 +233,6 @@
 		"endBeforeStart": "Das Ende muss nach dem Anfang liegen.",
 		"exportTooLong": "Höchstens 24 Stunden am Stück.",
 		"zoom4": "3 Minuten",
-		"timelineHelp": "Klicken springt · Ziehen markiert für den Export · Maus stillhalten vergrößert · Mausrad zoomt · Skala ziehen verschiebt"
+		"timelineHelp": "Klicken springt · Ziehen markiert für den Export · Mausrad zoomt · Skala ziehen verschiebt"
 	}
 }

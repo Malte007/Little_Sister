@@ -1,8 +1,8 @@
 <script lang="ts">
 	// Zeitleiste eines Tages: aufgenommene Bereiche, Ereignismarker, Abspielposition und Export-Auswahl.
-	// Klick springt, Ziehen markiert einen Zeitraum, Verweilen mit der Maus vergrößert um den Mauszeiger
-	// (Lupe, endet beim Verlassen), Mausrad zoomt, Ziehen auf der Skala verschiebt den Ausschnitt.
-	import { onDestroy, untrack } from 'svelte';
+	// Klick springt, Ziehen markiert einen Zeitraum, Mausrad zoomt um den Mauszeiger,
+	// Ziehen auf der Skala verschiebt den Ausschnitt.
+	import { untrack } from 'svelte';
 	import { i18n, t } from '#lib/i18n/index.svelte.js';
 	import { tickStep, ticks, zoneOffset, type Range } from '#lib/playback/timeline.js';
 
@@ -37,12 +37,8 @@
 	// Ausschnitte: ganzer Tag bis 3 Minuten
 	const zooms = [0, 6 * 3_600_000, 3_600_000, 15 * 60_000, 3 * 60_000];
 	const maxZoom = zooms.length - 1;
-	const dwellMs = 1200;
 
-	// Gewählte Vergrößerung (Knöpfe, Mausrad) und zusätzliche Stufen der Lupe
-	let baseZoom = $state(0);
-	let lupe = $state(0);
-	const zoom = $derived(Math.min(baseZoom + lupe, maxZoom));
+	let zoom = $state(0);
 	let viewStart = $state(0);
 	const daySpan = $derived(to - from);
 	const spanOf = (level: number) =>
@@ -61,10 +57,8 @@
 		e.clientX - (track?.getBoundingClientRect().left ?? 0);
 
 	/** Wechselt die Vergrößerung; die Zeit unter dem Ankerpunkt (Anteil der Breite) bleibt an ihrem Platz. */
-	function setZoom(base: number, extra: number, anchor: number, fraction: number) {
-		const level = Math.min(base + extra, maxZoom);
-		baseZoom = base;
-		lupe = extra;
+	function setZoom(level: number, anchor: number, fraction: number) {
+		zoom = level;
 		viewStart = clamp(anchor - fraction * spanOf(level), spanOf(level));
 	}
 
@@ -75,19 +69,18 @@
 	$effect(() => {
 		void from;
 		untrack(() => {
-			baseZoom = 0;
-			lupe = 0;
+			zoom = 0;
 			panned = false;
 			viewStart = from;
 		});
 	});
 
-	// Läuft die Position aus dem Ausschnitt, wandert er mit (nicht während Lupe oder Ziehen)
+	// Läuft die Position aus dem Ausschnitt, wandert er mit (nicht während des Ziehens)
 	$effect(() => {
 		if (position === null) return;
 		const p = position;
 		untrack(() => {
-			if (panned || lupe > 0 || drag) return;
+			if (panned || drag) return;
 			if (p < viewStart || p > viewStart + span) viewStart = clamp(p - span * 0.1, span);
 		});
 	});
@@ -107,24 +100,6 @@
 		ticks(viewStart, viewEnd, tickStep(span), (t) => zoneOffset(timeZone, t))
 	);
 
-	// Lupe: bleibt die Maus gut eine Sekunde stehen, eine Stufe näher heran
-	let dwell: ReturnType<typeof setTimeout> | undefined;
-	function armDwell() {
-		clearTimeout(dwell);
-		dwell = setTimeout(() => {
-			// Höchstens eine Stufe näher als die gewählte Vergrößerung
-			if (!hover || lupe > 0 || zoom >= maxZoom) return;
-			setZoom(baseZoom, 1, hover.time, hover.x / Math.max(width, 1));
-		}, dwellMs);
-	}
-	onDestroy(() => clearTimeout(dwell));
-
-	function leave() {
-		clearTimeout(dwell);
-		if (lupe > 0 && hover) setZoom(baseZoom, 0, hover.time, hover.x / Math.max(width, 1));
-		hover = null;
-	}
-
 	// Auf der Leiste: Klick springt, Ziehen markiert einen Zeitraum
 	let drag: { x: number; time: number; moved: boolean } | null = null;
 
@@ -138,8 +113,6 @@
 	function pointerMove(e: PointerEvent) {
 		const x = Math.min(Math.max(xOf(e), 0), width);
 		const time = timeAt(x);
-		// Kleine Zitterbewegungen setzen die Lupe nicht zurück
-		if (!hover || Math.abs(hover.x - x) > 3) armDwell();
 		hover = { time, x };
 		if (!drag) return;
 		if (Math.abs(x - drag.x) > 4) drag.moved = true;
@@ -164,8 +137,8 @@
 			return;
 		}
 		const x = xOf(e);
-		const next = Math.min(Math.max(baseZoom + (e.deltaY < 0 ? 1 : -1), 0), maxZoom);
-		if (next !== baseZoom) setZoom(next, 0, timeAt(x), x / Math.max(width, 1));
+		const next = Math.min(Math.max(zoom + (e.deltaY < 0 ? 1 : -1), 0), maxZoom);
+		if (next !== zoom) setZoom(next, timeAt(x), x / Math.max(width, 1));
 	}
 
 	// Ziehen auf der Skala verschiebt den Ausschnitt
@@ -185,8 +158,7 @@
 			position !== null && position >= viewStart && position <= viewEnd
 				? position
 				: viewStart + span / 2;
-		const next = Math.min(Math.max(baseZoom + delta, 0), maxZoom);
-		setZoom(next, 0, anchor, 0.5);
+		setZoom(Math.min(Math.max(zoom + delta, 0), maxZoom), anchor, 0.5);
 	}
 
 	function keydown(e: KeyboardEvent) {
@@ -212,16 +184,14 @@
 			<button
 				class="secondary"
 				onclick={() => zoomButton(-1)}
-				disabled={baseZoom === 0}
+				disabled={zoom === 0}
 				aria-label={t('playback.zoomOut')}>−</button
 			>
-			<span class="muted" class:lupe={lupe > 0}
-				>{zoom === 0 ? t('playback.wholeDay') : t(`playback.zoom${zoom}`)}</span
-			>
+			<span class="muted">{zoom === 0 ? t('playback.wholeDay') : t(`playback.zoom${zoom}`)}</span>
 			<button
 				class="secondary"
 				onclick={() => zoomButton(1)}
-				disabled={baseZoom === maxZoom}
+				disabled={zoom === maxZoom}
 				aria-label={t('playback.zoomIn')}>+</button
 			>
 		</div>
@@ -230,7 +200,6 @@
 
 	<div
 		class="track"
-		class:zoomed={lupe > 0}
 		role="slider"
 		tabindex="0"
 		aria-label={t('playback.timeline')}
@@ -243,7 +212,7 @@
 		onpointerdown={pointerDown}
 		onpointermove={pointerMove}
 		onpointerup={pointerUp}
-		onpointerleave={leave}
+		onpointerleave={() => (hover = null)}
 		onwheel={wheel}
 		onkeydown={keydown}
 	>
@@ -322,9 +291,6 @@
 		font-size: 0.75rem;
 		text-align: right;
 	}
-	.lupe {
-		color: var(--accent);
-	}
 	.track {
 		position: relative;
 		height: 3rem;
@@ -385,9 +351,6 @@
 	.hover span.right {
 		left: auto;
 		right: 0.3rem;
-	}
-	.track.zoomed {
-		border-color: var(--accent);
 	}
 	.playhead {
 		position: absolute;
