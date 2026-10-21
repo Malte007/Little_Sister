@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LittleSister.Api.Endpoints;
 
-/// <summary>Überblick über den Aufnahmespeicher und die globale Freispeichergrenze.</summary>
+/// <summary>Überblick über den Aufnahmespeicher, die globale Freispeichergrenze und die Vorschaubilder.</summary>
 internal static class StorageEndpoints
 {
     public static void MapStorageEndpoints(this RouteGroupBuilder api)
@@ -19,9 +19,11 @@ internal static class StorageEndpoints
         group.MapPut("", Update).RequireAuthorization(Policies.Admin);
     }
 
-    internal sealed record StorageInfo(string RecordingsPath, long? FreeBytes, long? TotalBytes, long UsedBytes, double MinFreeGb);
+    internal sealed record StorageInfo(
+        string RecordingsPath, long? FreeBytes, long? TotalBytes, long UsedBytes, double MinFreeGb, bool ThumbnailsEnabled);
     /// <param name="RecordingsPath">Neuer Aufnahmeordner; null = unverändert.</param>
-    internal sealed record StorageUpdate(double MinFreeGb, string? RecordingsPath = null);
+    /// <param name="ThumbnailsEnabled">Vorschaubilder erzeugen; null = unverändert.</param>
+    internal sealed record StorageUpdate(double MinFreeGb, string? RecordingsPath = null, bool? ThumbnailsEnabled = null);
 
     private static async Task<IResult> Get(LittleSisterDbContext db, IFreeSpaceProvider freeSpace)
     {
@@ -38,11 +40,12 @@ internal static class StorageEndpoints
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
 
         var used = await db.Segments.SumAsync(s => s.SizeBytes);
-        return Results.Ok(new StorageInfo(settings.RecordingsPath, freeSpace.GetAvailableBytes(settings.RecordingsPath), total, used, settings.MinFreeGb));
+        return Results.Ok(new StorageInfo(
+            settings.RecordingsPath, freeSpace.GetAvailableBytes(settings.RecordingsPath), total, used, settings.MinFreeGb, settings.ThumbnailsEnabled));
     }
 
     /// <summary>
-    /// Ändert Freispeichergrenze und Aufnahmeordner. Neue Aufnahmen landen im neuen Ordner;
+    /// Ändert Freispeichergrenze, Aufnahmeordner und ob Vorschaubilder entstehen. Neue Aufnahmen landen im neuen Ordner;
     /// bestehende bleiben im alten Ordner und werden dort weiter vom Ringspeicher verwaltet.
     /// </summary>
     private static async Task<IResult> Update(
@@ -67,6 +70,8 @@ internal static class StorageEndpoints
         }
 
         settings.MinFreeGb = request.MinFreeGb;
+        if (request.ThumbnailsEnabled is { } thumbnails)
+            settings.ThumbnailsEnabled = thumbnails;
         await db.SaveChangesAsync();
 
         // Recorder mit neuem Ordner neu starten; das laufende Segment wird vorher sauber abgeschlossen

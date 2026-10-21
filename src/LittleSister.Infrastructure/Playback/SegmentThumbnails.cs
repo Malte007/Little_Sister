@@ -3,6 +3,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Threading.Channels;
 using LittleSister.Core.Recording;
+using LittleSister.Core.Settings;
+using LittleSister.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,8 +18,10 @@ namespace LittleSister.Infrastructure.Playback;
 /// <see cref="IntervalSeconds"/> Sekunden, abgelegt neben dem Segment (120420.mp4 → 120420.jpg).
 /// ffmpeg dekodiert dafür nur Schlüsselbilder; das kostet kaum Rechenzeit.
 /// Neue Segmente werden im Hintergrund nacheinander bearbeitet, ältere bei der ersten Anfrage.
+/// Hat der Admin die Vorschaubilder ausgeschaltet, entstehen keine neuen.
 /// </summary>
-public sealed class SegmentThumbnails(IOptions<LittleSisterOptions> options, ILogger<SegmentThumbnails> logger) : BackgroundService
+public sealed class SegmentThumbnails(
+    IServiceScopeFactory scopes, IOptions<LittleSisterOptions> options, ILogger<SegmentThumbnails> logger) : BackgroundService
 {
     /// <summary>Abstand der Bilder im Streifen.</summary>
     public const int IntervalSeconds = 10;
@@ -61,9 +67,21 @@ public sealed class SegmentThumbnails(IOptions<LittleSisterOptions> options, ILo
         try
         {
             await foreach (var segment in queue.Reader.ReadAllAsync(stoppingToken))
-                await EnsureAsync(segment);
+            {
+                if (await IsEnabledAsync(stoppingToken))
+                    await EnsureAsync(segment);
+            }
         }
         catch (OperationCanceledException) { /* Dienst wird beendet */ }
+    }
+
+    /// <summary>Ob Vorschaubilder erzeugt werden sollen (Einstellung des Admins, Standard: ja).</summary>
+    public async Task<bool> IsEnabledAsync(CancellationToken ct)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<LittleSisterDbContext>();
+        return await db.SystemSettings.AsNoTracking().Where(s => s.Id == SystemSettings.SingletonId)
+            .Select(s => (bool?)s.ThumbnailsEnabled).FirstOrDefaultAsync(ct) ?? true;
     }
 
     private async Task<bool> CreateAsync(Segment segment, string target)

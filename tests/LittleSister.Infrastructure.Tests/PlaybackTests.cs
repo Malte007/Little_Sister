@@ -124,7 +124,9 @@ public class PlaybackTests
                 "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", file);
             var segment = new Segment { StorageRoot = dir, RelativePath = "120000.mp4", StartUtc = T0, EndUtc = T0.AddSeconds(35) };
 
+            // Die Einstellung (Datenbank) spielt beim direkten Erzeugen keine Rolle
             var thumbnails = new SegmentThumbnails(
+                null!,
                 Microsoft.Extensions.Options.Options.Create(new LittleSisterOptions()),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<SegmentThumbnails>.Instance);
             Assert.True(await thumbnails.EnsureAsync(segment));

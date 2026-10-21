@@ -179,6 +179,8 @@ export interface StorageInfo {
 	totalBytes: number | null;
 	usedBytes: number;
 	minFreeGb: number;
+	/** Vorschaubilder für die Zeitleiste erzeugen */
+	thumbnailsEnabled: boolean;
 }
 
 /** Aufnahmen eines Tages in der Zeitzone der Installation (Zeitleiste und Wiedergabe). */
@@ -194,6 +196,6 @@ export interface RecordingDay {
 	events: { timeUtc: string; kind: string }[];
 	previousDate: string | null;
 	nextDate: string | null;
-	/** Abstand der Vorschaubilder in Sekunden */
+	/** Abstand der Vorschaubilder in Sekunden; 0 = vom Admin ausgeschaltet */
 	thumbnailSeconds: number;
 }

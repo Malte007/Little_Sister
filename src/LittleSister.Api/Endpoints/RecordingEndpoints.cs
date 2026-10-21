@@ -30,14 +30,15 @@ internal static class RecordingEndpoints
 
     /// <param name="Segments">Abspielbare Segmente in Playlist-Reihenfolge; die Oberfläche rechnet damit Uhrzeit und Abspielposition um.</param>
     /// <param name="PreviousDate">Letzter Tag davor mit Aufnahmen, für die Blätter-Knöpfe.</param>
-    /// <param name="ThumbnailSeconds">Abstand der Vorschaubilder in Sekunden.</param>
+    /// <param name="ThumbnailSeconds">Abstand der Vorschaubilder in Sekunden; 0 = Vorschaubilder ausgeschaltet.</param>
     internal sealed record DayDto(
         DateOnly Date, DateOnly Today, string TimeZoneId, DateTimeOffset FromUtc, DateTimeOffset ToUtc,
         IReadOnlyList<SegmentDto> Segments, IReadOnlyList<EventDto> Events, DateOnly? PreviousDate, DateOnly? NextDate,
         int ThumbnailSeconds);
 
     /// <param name="date">Tag in der Zeitzone der Installation; ohne Angabe heute.</param>
-    private static async Task<IResult> Day(Guid id, DateOnly? date, LittleSisterDbContext db, TimeProvider time, CancellationToken ct)
+    private static async Task<IResult> Day(
+        Guid id, DateOnly? date, LittleSisterDbContext db, SegmentThumbnails thumbnails, TimeProvider time, CancellationToken ct)
     {
         if (!await db.Cameras.AnyAsync(c => c.Id == id, ct))
             return Results.NotFound();
@@ -58,7 +59,7 @@ internal static class RecordingEndpoints
             segments.Select(s => new SegmentDto(s.Id, s.StartUtc, s.EndUtc, SegmentThumbnails.CountOf(s))).ToList(), [],
             previous is { } p ? RecordingDay.DateOf(p, zone) : null,
             next is { } n ? RecordingDay.DateOf(n, zone) : null,
-            SegmentThumbnails.IntervalSeconds));
+            await thumbnails.IsEnabledAsync(ct) ? SegmentThumbnails.IntervalSeconds : 0));
     }
 
     private static async Task<IResult> Playlist(Guid id, DateOnly date, HttpContext http, LittleSisterDbContext db, CancellationToken ct)
@@ -89,11 +90,16 @@ internal static class RecordingEndpoints
         return Results.File(segment.FullPath, "video/mp4", enableRangeProcessing: true);
     }
 
-    /// <summary>Bildstreifen eines Segments; fehlt er noch (z. B. ältere Aufnahmen), wird er jetzt erzeugt.</summary>
+    /// <summary>Bildstreifen eines Segments; fehlt er noch (z. B. ältere Aufnahmen), wird er jetzt erzeugt,
+    /// sofern Vorschaubilder eingeschaltet sind.</summary>
     private static async Task<IResult> Thumbnails(long segmentId, HttpContext http, LittleSisterDbContext db, SegmentThumbnails thumbnails, CancellationToken ct)
     {
         var segment = await db.Segments.AsNoTracking().FirstOrDefaultAsync(s => s.Id == segmentId, ct);
-        if (segment is null || !await thumbnails.EnsureAsync(segment).WaitAsync(ct))
+        if (segment is null)
+            return Results.NotFound();
+        var exists = File.Exists(SegmentThumbnails.PathOf(segment))
+            || (await thumbnails.IsEnabledAsync(ct) && await thumbnails.EnsureAsync(segment).WaitAsync(ct));
+        if (!exists)
             return Results.NotFound();
 
         http.Response.Headers.CacheControl = "private, max-age=86400";

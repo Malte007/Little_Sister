@@ -364,7 +364,9 @@
 			timeZone={day.timeZoneId}
 			onseek={seekWall}
 			onselect={(start, end) => (selection = { start, end })}
-			thumbnail={(lane, time) => thumbnailAt(maps[lane] ?? [], time, day.thumbnailSeconds)}
+			thumbnail={day.thumbnailSeconds > 0
+				? (lane, time) => thumbnailAt(maps[lane] ?? [], time, day.thumbnailSeconds)
+				: undefined}
 		/>
 	</div>
 

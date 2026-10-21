@@ -171,4 +171,29 @@ public class PlaybackTests
 
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/recordings/segments/999999/thumbnails.jpg")).StatusCode);
     }
+
+    [Fact]
+    public async Task Vorschaubilder_LassenSichAbschalten()
+    {
+        using var factory = new LittleSisterFactory();
+        factory.Settings["LittleSister:Recording:FfmpegPath"] = "ffmpeg";
+        var admin = await factory.CreateAdminClientAsync();
+        var (camera, start) = await SeedAsync(factory, admin);
+        Assert.True((await admin.GetFromJsonAsync<JsonElement>("/api/storage")).GetProperty("thumbnailsEnabled").GetBoolean());
+
+        var off = await admin.PutAsJsonAsync("/api/storage", new { minFreeGb = 10, thumbnailsEnabled = false });
+        Assert.Equal(HttpStatusCode.NoContent, off.StatusCode);
+        Assert.False((await admin.GetFromJsonAsync<JsonElement>("/api/storage")).GetProperty("thumbnailsEnabled").GetBoolean());
+
+        // Die Zeitleiste fragt keine Bilder mehr an, und es entstehen auch keine
+        var day = await admin.GetFromJsonAsync<JsonElement>($"/api/recordings/{camera}/day?date={DateOf(start)}");
+        Assert.Equal(0, day.GetProperty("thumbnailSeconds").GetInt32());
+        var id = day.GetProperty("segments")[0].GetProperty("id").GetInt64();
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/recordings/segments/{id}/thumbnails.jpg")).StatusCode);
+        Assert.Empty(Directory.EnumerateFiles(factory.RecordingsPath, "*.jpg", SearchOption.AllDirectories));
+
+        // Ohne Angabe bleibt die Einstellung unverändert
+        await admin.PutAsJsonAsync("/api/storage", new { minFreeGb = 12 });
+        Assert.False((await admin.GetFromJsonAsync<JsonElement>("/api/storage")).GetProperty("thumbnailsEnabled").GetBoolean());
+    }
 }

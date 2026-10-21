@@ -96,7 +96,7 @@ Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wu
 
 Über **+ Kamera hinzufügen** laufen bis zu neun Kameras synchron über dieselbe Zeitleiste, je Kamera mit einer eigenen Spur. Über die Auswahl im Kachelkopf lässt sich eine Kamera gegen eine andere tauschen, ✕ entfernt sie. Hat eine Kamera zur aktuellen Uhrzeit keine Aufnahme, pausiert sie, bis wieder etwas aufgenommen wurde. Der Export erzeugt je Kamera eine eigene Datei. Jede Kamera dekodiert ihr eigenes Video im Browser; bei vielen 4K-Kameras kann ein schwächerer Rechner an seine Grenzen kommen.
 
-Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Little Sister zu jedem Segment einen Bildstreifen mit einem Bild alle 10 Sekunden ab. Der Streifen entsteht nach der Aufnahme im Hintergrund aus den Schlüsselbildern, also mit wenig Rechenzeit. Für ältere Aufnahmen entsteht er beim ersten Überfahren.
+Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Little Sister zu jedem Segment einen Bildstreifen mit einem Bild alle 10 Sekunden ab. Der Streifen entsteht nach der Aufnahme im Hintergrund aus den Schlüsselbildern, also mit wenig Rechenzeit. Für ältere Aufnahmen entsteht er beim ersten Überfahren. Wer die Rechenzeit sparen will, schaltet die Vorschaubilder unter **Kameras → Speicher** aus; dann entstehen keine neuen Bilder, und die Zeitleiste zeigt keine Vorschau.
 
 ### Ablage der Aufnahmen
 
