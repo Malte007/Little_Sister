@@ -30,6 +30,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=backend /app ./
 COPY --from=web /src/web/build ./wwwroot
+COPY LICENSE THIRD-PARTY-NOTICES ./
 
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     LittleSister__DataPath=/data \
