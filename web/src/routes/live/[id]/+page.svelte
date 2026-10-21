@@ -15,7 +15,19 @@
 	let hd = $state(true);
 	let audio = $state(false);
 	const liveUsable = $derived(data.live.available || data.live.error === 'starting');
+
+	// Vollbild per Knopf oder Doppelklick; auf Geräten ohne Vollbild-API wird der Knopf ausgeblendet
+	let stage = $state<HTMLDivElement>();
+	let fullscreen = $state(false);
+	const canFullscreen = typeof document !== 'undefined' && document.fullscreenEnabled;
+
+	function toggleFullscreen() {
+		if (document.fullscreenElement) document.exitFullscreen();
+		else stage?.requestFullscreen();
+	}
 </script>
+
+<svelte:document onfullscreenchange={() => (fullscreen = document.fullscreenElement === stage)} />
 
 <div class="head">
 	<div>
@@ -33,11 +45,21 @@
 		<button class="secondary" onclick={() => (audio = !audio)} aria-pressed={audio}>
 			{audio ? t('live.audioOn') : t('live.audioOff')}
 		</button>
+		{#if canFullscreen}
+			<button class="secondary" onclick={toggleFullscreen}>{t('live.fullscreen')}</button>
+		{/if}
 	</div>
 </div>
 
 {#if liveUsable}
-	<div class="card stage">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="card stage"
+		class:fullscreen
+		bind:this={stage}
+		ondblclick={canFullscreen ? toggleFullscreen : undefined}
+		title={canFullscreen ? t('live.fullscreenHint') : undefined}
+	>
 		<!-- Neu aufbauen, wenn die Auflösung wechselt -->
 		{#key hd}
 			<LiveVideo cameraId={camera.id} hd={hasSub && hd} {audio} rotation={camera.rotation} />
@@ -85,8 +107,29 @@
 		background: var(--accent);
 		color: #fff;
 	}
+	/* So groß wie möglich: volle Fensterbreite, aber nie höher als der Platz unter der Kopfzeile */
 	.stage {
+		position: relative;
+		left: 50%;
+		translate: -50%;
+		width: min(calc(100vw - 3rem), calc((100dvh - 13rem) * 16 / 9));
+		min-width: min(100%, 20rem);
 		padding: 0;
 		overflow: hidden;
+	}
+	.stage.fullscreen {
+		left: 0;
+		translate: none;
+		width: 100vw;
+		height: 100vh;
+		display: grid;
+		place-items: center;
+		border: 0;
+		border-radius: 0;
+		background: #000;
+	}
+	/* Im Vollbild füllt das Bild den Bildschirm, ohne verzerrt zu werden */
+	.stage.fullscreen :global(.live) {
+		width: min(100vw, calc(100vh * 16 / 9));
 	}
 </style>

@@ -193,6 +193,8 @@
 		"starting": "Live view is starting.",
 		"go2rtcMissing": "Live view is unavailable: go2rtc was not found. Recording continues anyway.",
 		"go2rtcFailed": "Live view is currently disrupted and restarting. Recording continues anyway.",
-		"codecUnsupported": "This browser cannot play {codec}."
+		"codecUnsupported": "This browser cannot play {codec}.",
+		"fullscreen": "Fullscreen",
+		"fullscreenHint": "Double-click for fullscreen"
 	}
 }

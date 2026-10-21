@@ -193,6 +193,8 @@
 		"starting": "Die Live-Ansicht startet gerade.",
 		"go2rtcMissing": "Die Live-Ansicht ist nicht verfügbar: go2rtc wurde nicht gefunden. Die Aufnahme läuft trotzdem weiter.",
 		"go2rtcFailed": "Die Live-Ansicht ist gerade gestört und startet neu. Die Aufnahme läuft trotzdem weiter.",
-		"codecUnsupported": "Dieser Browser kann {codec} nicht abspielen."
+		"codecUnsupported": "Dieser Browser kann {codec} nicht abspielen.",
+		"fullscreen": "Vollbild",
+		"fullscreenHint": "Doppelklick für Vollbild"
 	}
 }
