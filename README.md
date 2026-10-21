@@ -33,6 +33,8 @@ docker compose up -d --build
 
 Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`.
 
+Für Unraid mit dem fertigen Image aus der Gitea-CI: [docs/installation-unraid.md](docs/installation-unraid.md).
+
 Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
 
 ### Live-Ansicht
