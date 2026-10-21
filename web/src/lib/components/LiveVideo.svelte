@@ -37,23 +37,55 @@
 		return codec ? t('live.codecUnsupported', { codec }) : t('live.cameraError');
 	});
 
-	onMount(() => {
-		definePlayer();
+	// Erst nur WebRTC (geringe Latenz), wie go2rtcs eigener Player. Liefert das nach einigen Sekunden
+	// kein Bild, folgt MSE über die normale Verbindung. Beides gleichzeitig geht nicht gut: scheitert
+	// MSE, schließt der Player die gemeinsame Verbindung und reißt WebRTC mit.
+	const webRtcTimeout = 8000;
+	let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+	let webRtcError: string | null = null;
+
+	function start(mode: 'webrtc' | 'mse') {
+		clearTimeout(fallbackTimer);
+		player?.remove();
+		playerState = 'connecting';
+		error = null;
+
 		const element = document.createElement('ls-live-video') as LivePlayer;
+		element.mode = mode;
 		// Wie go2rtcs eigener Player: Bild und Ton anfordern
-		element.mode = 'webrtc,mse';
 		element.media = 'video,audio';
 		if (onlyWhenVisible) element.visibilityThreshold = 0.1;
 		element.addEventListener('playerstate', (e) => {
 			const { state: next, detail } = (e as CustomEvent<{ state: PlayerState; detail?: string }>)
 				.detail;
+			if (next === 'playing') clearTimeout(fallbackTimer);
+			if (next === 'error' && mode === 'webrtc') {
+				webRtcError = detail ?? null;
+				return start('mse');
+			}
 			playerState = next;
 			error = next === 'error' ? (detail ?? null) : null;
 		});
 		host.appendChild(element);
 		element.src = `/api/live/${cameraId}/ws?hd=${hd}`;
 		player = element;
-		return () => element.remove();
+
+		fallbackTimer = setTimeout(() => {
+			if (playerState === 'playing') return;
+			if (mode === 'webrtc') return start('mse');
+			// Auch MSE liefert nichts: Grund von WebRTC anzeigen (z. B. Format nicht unterstützt)
+			playerState = 'error';
+			error = webRtcError;
+		}, webRtcTimeout);
+	}
+
+	onMount(() => {
+		definePlayer();
+		start('webrtc');
+		return () => {
+			clearTimeout(fallbackTimer);
+			player?.remove();
+		};
 	});
 
 	// Ton ein/aus ohne neue Verbindung
