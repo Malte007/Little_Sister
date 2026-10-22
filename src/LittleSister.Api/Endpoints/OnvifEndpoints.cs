@@ -66,11 +66,5 @@ internal static class OnvifEndpoints
     }
 
     /// <summary>Erlaubt auch die Eingabe einer bloßen IP-Adresse ("192.168.1.20" oder "192.168.1.20:8000").</summary>
-    internal static string NormalizeAddress(string? address)
-    {
-        address = address?.Trim() ?? "";
-        if (address.Length > 0 && !address.Contains("://", StringComparison.Ordinal))
-            address = $"http://{address}/onvif/device_service";
-        return address;
-    }
+    internal static string NormalizeAddress(string? address) => OnvifClient.NormalizeDeviceAddress(address);
 }

@@ -25,9 +25,30 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
     public OnvifClient(TimeProvider time)
         : this(credential => new HttpClientHandler { Credentials = credential, PreAuthenticate = false }, time) { }
 
+    /// <summary>Üblicher Pfad des Gerätedienstes; fast alle Kameras nutzen ihn.</summary>
+    public const string DefaultDevicePath = "/onvif/device_service";
+
+    /// <summary>
+    /// Vervollständigt die Eingabe zur Adresse des Gerätedienstes: "192.168.0.160:8080" und
+    /// "http://192.168.0.160:8080" werden zu "http://192.168.0.160:8080/onvif/device_service".
+    /// Ein angegebener Pfad bleibt unverändert.
+    /// </summary>
+    public static string NormalizeDeviceAddress(string? address)
+    {
+        address = address?.Trim() ?? "";
+        if (address.Length == 0)
+            return address;
+        if (!address.Contains("://", StringComparison.Ordinal))
+            address = "http://" + address;
+        if (Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/" && uri.Query.Length == 0)
+            address = uri.GetLeftPart(UriPartial.Authority) + DefaultDevicePath;
+        return address;
+    }
+
     /// <summary>Fragt Gerät und Medienprofile ab und schlägt Haupt- und Substream vor.</summary>
     public async Task<OnvifProbeResult> ProbeAsync(string deviceAddress, string? username, string? password, CancellationToken ct = default)
     {
+        deviceAddress = NormalizeDeviceAddress(deviceAddress);
         if (!Uri.TryCreate(deviceAddress, UriKind.Absolute, out var deviceUri) || deviceUri.Scheme is not ("http" or "https"))
             throw new OnvifException("onvifInvalidAddress", "Ungültige ONVIF-Adresse.");
 
@@ -85,6 +106,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
     public async Task<OnvifEventSubscription> SubscribeEventsAsync(
         string deviceAddress, string? username, string? password, CancellationToken ct = default, IOnvifEventCallback? push = null)
     {
+        deviceAddress = NormalizeDeviceAddress(deviceAddress);
         if (!Uri.TryCreate(deviceAddress, UriKind.Absolute, out var deviceUri) || deviceUri.Scheme is not ("http" or "https"))
             throw new OnvifException("onvifInvalidAddress", "Ungültige ONVIF-Adresse.");
 

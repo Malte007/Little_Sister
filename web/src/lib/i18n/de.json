@@ -193,7 +193,7 @@
 		"modeOff": "Aus",
 		"modeOffHint": "Keine Aufnahme, nur Live-Bild.",
 		"onvifAddress": "ONVIF-Adresse",
-		"onvifAddressHint": "Über diese Adresse meldet die Kamera Bewegung. Wird bei der Suche automatisch eingetragen.",
+		"onvifAddressHint": "Über diese Adresse meldet die Kamera Bewegung, z. B. http://192.168.0.160:8080. IP und Port genügen, der Pfad wird ergänzt. Wird bei der Suche automatisch eingetragen.",
 		"preRoll": "Vorlauf (Sekunden)",
 		"preRollHint": "So viel wird vor der Bewegung mit aufgehoben. Dafür läuft der Stream dauernd in einen kurzen Zwischenspeicher. Bei 0 startet die Aufnahme erst mit der Bewegung.",
 		"postRoll": "Nachlauf (Sekunden)",

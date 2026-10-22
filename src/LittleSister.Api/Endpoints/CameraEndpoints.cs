@@ -5,6 +5,7 @@ using LittleSister.Core.Settings;
 using LittleSister.Core.Storage;
 using LittleSister.Infrastructure;
 using LittleSister.Infrastructure.Data;
+using LittleSister.Infrastructure.Onvif;
 using LittleSister.Infrastructure.Recording;
 using LittleSister.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -194,9 +195,11 @@ internal static class CameraEndpoints
             SubStreamUrl = sub,
             Username = string.IsNullOrWhiteSpace(r.Username) ? user : r.Username.Trim(),
             Password = r.Password ?? password,
+            // "http://IP:Port" genügt; der Pfad zum Gerätedienst wird ergänzt
+            OnvifAddress = string.IsNullOrWhiteSpace(r.OnvifAddress) ? null : OnvifClient.NormalizeDeviceAddress(r.OnvifAddress),
         };
         var errors = CameraValidator.Validate(normalized.Name, main, sub, r.QuotaGb, r.MaxRetentionDays, r.Rotation,
-            r.Mode ?? RecordingMode.Off, r.OnvifAddress, r.PreRollSeconds, r.PostRollSeconds);
+            r.Mode ?? RecordingMode.Off, normalized.OnvifAddress, r.PreRollSeconds, r.PostRollSeconds);
         if (r.Mode is null)
             errors["recordingMode"] = ["invalidRecordingMode"];
         return (normalized, errors);

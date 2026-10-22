@@ -61,12 +61,14 @@ public class CameraTests
 
         var created = await admin.PostAsJsonAsync("/api/cameras", new
         {
-            name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, onvifAddress = "http://cam/onvif/device_service",
+            name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, onvifAddress = "http://cam:8080",
             recordingMode = "motion", preRollSeconds = 0, postRollSeconds = 2,
         });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var camera = await created.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Motion", camera.GetProperty("recordingMode").GetString());
+        // Nur IP und Port eingegeben: Pfad zum Gerätedienst wird ergänzt
+        Assert.Equal("http://cam:8080/onvif/device_service", camera.GetProperty("onvifAddress").GetString());
         Assert.Equal(0, camera.GetProperty("preRollSeconds").GetInt32());
         Assert.Equal(2, camera.GetProperty("postRollSeconds").GetInt32());
         Assert.True(camera.GetProperty("recordingEnabled").GetBoolean());

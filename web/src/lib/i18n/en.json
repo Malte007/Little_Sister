@@ -193,7 +193,7 @@
 		"modeOff": "Off",
 		"modeOffHint": "No recording, live view only.",
 		"onvifAddress": "ONVIF address",
-		"onvifAddressHint": "The camera reports motion through this address. Filled in automatically by the search.",
+		"onvifAddressHint": "The camera reports motion through this address, e.g. http://192.168.0.160:8080. IP and port are enough, the path is added. Filled in automatically by the search.",
 		"preRoll": "Pre-roll (seconds)",
 		"preRollHint": "Kept from before the motion. The stream then runs constantly into a short buffer. With 0, recording starts with the motion.",
 		"postRoll": "Post-roll (seconds)",
