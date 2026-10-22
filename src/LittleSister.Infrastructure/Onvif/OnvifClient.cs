@@ -362,7 +362,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            throw new OnvifException("onvifUnreachable", $"ONVIF-Gerät {uri.Host} nicht erreichbar.", ex);
+            throw new OnvifException("onvifUnreachable", $"ONVIF-Gerät {uri.GetLeftPart(UriPartial.Path)} antwortet nicht.", ex);
         }
 
         using (response)
