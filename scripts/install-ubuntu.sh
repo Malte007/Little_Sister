@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Installiert oder aktualisiert Little Sister auf einem Ubuntu-Server als systemd-Dienst (ohne Docker).
 # Aufruf als normaler Benutzer aus dem Projektordner; für Systemschritte wird sudo verwendet.
+# Fehlen .NET 10, ffmpeg oder Node.js, bietet das Skript an, sie zu installieren.
 #
 # Anpassbar per Umgebungsvariable:
 #   INSTALL_DIR     Programmdateien              (Standard: /opt/little-sister)
@@ -19,13 +20,58 @@ ENV_FILE=/etc/little-sister/little-sister.env
 
 fail() { echo "Fehler: $*" >&2; exit 1; }
 
-# 1) Voraussetzungen prüfen
-command -v dotnet >/dev/null || fail ".NET 10 SDK fehlt (sudo apt install dotnet-sdk-10.0)"
-dotnet --list-sdks | grep -q '^10\.' || fail ".NET 10 SDK fehlt (sudo apt install dotnet-sdk-10.0)"
+# Ja/Nein-Frage über das Terminal; Enter bedeutet Ja. Ohne Terminal (z. B. per Pipe) gilt Nein.
+ask() {
+  local answer
+  ( : </dev/tty ) 2>/dev/null || return 1
+  read -rp "$1 [J/n] " answer </dev/tty || return 1
+  [[ -z "$answer" || "$answer" =~ ^[JjYy] ]]
+}
+
+has_dotnet10() { command -v dotnet >/dev/null && dotnet --list-sdks | grep -q '^10\.'; }
+node_ok() {
+  command -v node >/dev/null &&
+    node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)'
+}
+
+# 1) Voraussetzungen prüfen und fehlende nach Rückfrage installieren
+MISSING=()
+command -v curl >/dev/null || MISSING+=(curl)
+command -v ffmpeg >/dev/null || MISSING+=(ffmpeg)
+has_dotnet10 || MISSING+=(dotnet-sdk-10.0)
+node_ok || MISSING+=("nodejs (Version 24 über die Paketquelle von NodeSource)")
+
+if (( ${#MISSING[@]} > 0 )); then
+  echo "Es fehlen:"
+  printf '  - %s\n' "${MISSING[@]}"
+  ask "Jetzt installieren?" || fail "Bitte die fehlenden Programme installieren (siehe README) und das Skript erneut starten"
+
+  sudo apt-get update
+  APT_PACKAGES=()
+  command -v curl >/dev/null || APT_PACKAGES+=(curl)
+  command -v ffmpeg >/dev/null || APT_PACKAGES+=(ffmpeg)
+  if ! has_dotnet10; then
+    # Ältere Ubuntu-Versionen führen .NET 10 nur im Backports-PPA
+    if ! apt-cache show dotnet-sdk-10.0 >/dev/null 2>&1; then
+      ask ".NET 10 ist in den Ubuntu-Paketquellen nicht enthalten. Paketquelle ppa:dotnet/backports hinzufügen?" \
+        || fail ".NET 10 SDK fehlt"
+      sudo apt-get install -y software-properties-common
+      sudo add-apt-repository -y ppa:dotnet/backports
+    fi
+    APT_PACKAGES+=(dotnet-sdk-10.0)
+  fi
+  (( ${#APT_PACKAGES[@]} > 0 )) && sudo apt-get install -y "${APT_PACKAGES[@]}"
+
+  if ! node_ok; then
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+  fi
+fi
+
+# Zur Sicherheit erneut prüfen (z. B. ein älteres Node über nvm im PATH vor /usr/bin)
+has_dotnet10 || fail ".NET 10 SDK fehlt (sudo apt install dotnet-sdk-10.0)"
 command -v ffmpeg >/dev/null || fail "ffmpeg fehlt (sudo apt install ffmpeg)"
-command -v node >/dev/null || fail "Node.js 24 fehlt (siehe README)"
-node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)' \
-  || fail "Node.js ist zu alt ($(node --version)), benötigt wird mindestens 22.12"
+node_ok || fail "Node.js fehlt oder ist zu alt ($(node --version 2>/dev/null || echo 'nicht gefunden')), benötigt wird mindestens 22.12"
 
 # 2) go2rtc installieren bzw. auf die gewünschte Version bringen
 if ! go2rtc -version 2>/dev/null | grep -q "$GO2RTC_VERSION"; then
