@@ -22,8 +22,12 @@ internal static class OnvifEndpoints
     /// <summary>Größte angenommene Notify-Nachricht; echte Meldungen haben wenige Kilobyte.</summary>
     private const int MaxNotifyBytes = 256 * 1024;
 
-    private static async Task<IResult> Notify(string token, HttpRequest request, OnvifEventCallback callback, CancellationToken ct)
+    private static async Task<IResult> Notify(
+        string token, HttpRequest request, OnvifEventCallback callback, ILoggerFactory loggers, CancellationToken ct)
     {
+        // Zeigt bei der Fehlersuche, ob die Kamera Little Sister überhaupt erreicht
+        loggers.CreateLogger("LittleSister.Api.OnvifNotify").LogInformation(
+            "ONVIF-Meldung von {Remote} ({Bytes} Bytes)", request.HttpContext.Connection.RemoteIpAddress, request.ContentLength);
         if (request.ContentLength > MaxNotifyBytes)
             return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 

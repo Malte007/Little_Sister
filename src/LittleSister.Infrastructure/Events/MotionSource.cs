@@ -24,7 +24,9 @@ public sealed class OnvifMotionSource(
             camera.OnvifAddress!, camera.Username, credentials.Unprotect(camera.ProtectedPassword), ct, callback);
 
         logger.LogInformation("Ereignisse von {Camera} abonniert: {Mode}", camera.Name,
-            subscription.Consumer is { } consumer ? $"Kamera schickt selbst an {consumer}" : "PullPoint");
+            subscription.Consumer is { } consumer
+                ? $"Kamera schickt selbst an {consumer} (PullPoint abgelehnt: {subscription.PullPointError})"
+                : "PullPoint");
 
         // Zustand je Thema und Quelle; Bewegung, solange irgendeine davon aktiv ist
         var states = new Dictionary<string, bool>();
