@@ -30,6 +30,7 @@ internal static class CameraEndpoints
     /// <param name="RecordingEnabled">Ältere Form: nur ohne <paramref name="RecordingMode"/> ausgewertet (an = Dauerhaft).</param>
     /// <param name="RecordingMode">"Off", "Continuous" oder "Motion".</param>
     /// <param name="MotionDetection">"Video" (Standard) oder "Onvif".</param>
+    /// <param name="MotionZones">Erkennungsbereiche als 16×12-Raster aus '0'/'1'; null = ganzes Bild.</param>
     internal sealed record CameraRequest(
         string Name,
         string MainStreamUrl,
@@ -47,7 +48,8 @@ internal static class CameraEndpoints
         int PreRollSeconds = 10,
         int PostRollSeconds = 30,
         string? MotionDetection = null,
-        int MotionSensitivity = 50)
+        int MotionSensitivity = 50,
+        string? MotionZones = null)
     {
         /// <summary>Gewählter Modus; null bei unbekanntem Wert.</summary>
         public RecordingMode? Mode => RecordingMode is null
@@ -80,7 +82,7 @@ internal static class CameraEndpoints
         Guid Id, string Name, string MainStreamUrl, string? SubStreamUrl, string? Username, bool HasPassword,
         string? OnvifAddress, string? Manufacturer, string? Model, bool RecordingEnabled, double QuotaGb, int? MaxRetentionDays,
         int Rotation, string RecordingMode, int PreRollSeconds, int PostRollSeconds, string MotionDetection, int MotionSensitivity,
-        CameraStatusDto Status, StorageUsage Storage);
+        string? MotionZones, CameraStatusDto Status, StorageUsage Storage);
 
     internal sealed record TestStreamRequest(string Url, string? Username, string? Password, Guid? CameraId);
 
@@ -207,10 +209,12 @@ internal static class CameraEndpoints
             Password = r.Password ?? password,
             // "http://IP:Port" genügt; der Pfad zum Gerätedienst wird ergänzt
             OnvifAddress = string.IsNullOrWhiteSpace(r.OnvifAddress) ? null : OnvifClient.NormalizeDeviceAddress(r.OnvifAddress),
+            // Alle Felder aktiv heißt dasselbe wie keine Bereiche: ganzes Bild
+            MotionZones = string.IsNullOrWhiteSpace(r.MotionZones) || r.MotionZones.All(c => c == '1') ? null : r.MotionZones.Trim(),
         };
         var errors = CameraValidator.Validate(normalized.Name, main, sub, r.QuotaGb, r.MaxRetentionDays, r.Rotation,
             r.Mode ?? RecordingMode.Off, normalized.OnvifAddress, r.PreRollSeconds, r.PostRollSeconds,
-            r.Detection ?? MotionDetection.Video, r.MotionSensitivity);
+            r.Detection ?? MotionDetection.Video, r.MotionSensitivity, normalized.MotionZones);
         if (r.Mode is null)
             errors["recordingMode"] = ["invalidRecordingMode"];
         if (r.Detection is null)
@@ -234,6 +238,7 @@ internal static class CameraEndpoints
         camera.PostRollSeconds = r.PostRollSeconds;
         camera.MotionDetection = r.Detection!.Value;
         camera.MotionSensitivity = r.MotionSensitivity;
+        camera.MotionZones = r.MotionZones;
         camera.QuotaGb = r.QuotaGb;
         camera.MaxRetentionDays = r.MaxRetentionDays;
         camera.Rotation = r.Rotation;
@@ -245,7 +250,7 @@ internal static class CameraEndpoints
         return new CameraDto(
             c.Id, c.Name, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword is not null,
             c.OnvifAddress, c.Manufacturer, c.Model, c.RecordingEnabled, c.QuotaGb, c.MaxRetentionDays, c.Rotation,
-            c.RecordingMode.ToString(), c.PreRollSeconds, c.PostRollSeconds, c.MotionDetection.ToString(), c.MotionSensitivity,
+            c.RecordingMode.ToString(), c.PreRollSeconds, c.PostRollSeconds, c.MotionDetection.ToString(), c.MotionSensitivity, c.MotionZones,
             CameraStatusDto.From(c.RecordingEnabled ? s : s with { State = CameraState.Idle }),
             usage is null ? new StorageUsage(0, 0, null, null, null) : usage with
             {

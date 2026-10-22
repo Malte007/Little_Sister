@@ -18,7 +18,7 @@ public static class CameraValidator
     public static Dictionary<string, string[]> Validate(
         string? name, string? mainStreamUrl, string? subStreamUrl, double quotaGb, int? maxRetentionDays, int rotation = 0,
         RecordingMode mode = RecordingMode.Continuous, string? onvifAddress = null, int preRollSeconds = 10, int postRollSeconds = 30,
-        MotionDetection detection = MotionDetection.Video, int sensitivity = 50)
+        MotionDetection detection = MotionDetection.Video, int sensitivity = 50, string? zones = null)
     {
         var errors = new Dictionary<string, string[]>();
 
@@ -52,6 +52,10 @@ public static class CameraValidator
 
         if (sensitivity is < MinSensitivity or > MaxSensitivity)
             errors["motionSensitivity"] = ["outOfRange"];
+
+        // Mindestens ein Feld muss überwacht werden, sonst gäbe es nie Bewegung
+        if (zones is not null && !MotionZones.IsValid(zones))
+            errors["motionZones"] = ["invalidZones"];
 
         return errors;
     }

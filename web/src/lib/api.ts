@@ -127,6 +127,8 @@ export interface Camera {
 	motionDetection: MotionDetection;
 	/** Empfindlichkeit der Bilderkennung, 1–100 */
 	motionSensitivity: number;
+	/** Erkennungsbereiche: 16×12 Felder '0'/'1', zeilenweise; null = ganzes Bild */
+	motionZones: string | null;
 	quotaGb: number;
 	maxRetentionDays: number | null;
 	/** Drehung im Uhrzeigersinn: 0, 90, 180 oder 270 */
@@ -156,6 +158,7 @@ export interface CameraInput {
 	postRollSeconds: number;
 	motionDetection: MotionDetection;
 	motionSensitivity: number;
+	motionZones: string | null;
 	quotaGb: number;
 	maxRetentionDays: number | null;
 	rotation: number;

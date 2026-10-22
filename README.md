@@ -107,6 +107,8 @@ Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: 
 | **Im Bild** (Standard) | Ein eigener ffmpeg-Prozess dekodiert den Substream und liefert 5 Bilder/s, verkleinert auf 80×60 Graustufen. Little Sister zählt die Pixel, die deutlich vom gleitenden Hintergrund abweichen. Ab einem Mindestanteil (Regler **Empfindlichkeit**: 1 = 10 % des Bildes, 50 ≈ 1,4 %, 100 = 0,2 %) beginnt die Bewegung, nach 3 s Ruhe endet sie. Ändert sich fast das ganze Bild auf einmal (Licht, Nachtsicht), zählt das nicht. | jede Kamera; Substream empfohlen. CPU-Last gemessen: etwa 3 % eines Kerns bei 640×360, etwa 6 % bei 1280×720 (ohne Substream wird der Hauptstream dekodiert, das kostet mehr) |
 | **Von der Kamera (ONVIF)** | Die Kamera erkennt selbst und meldet per ONVIF-Ereignis. | ONVIF-Adresse (wird bei der Suche eingetragen; `http://IP:Port` genügt) und eingeschaltete Erkennung in der Kamera. Viele günstige Kameras setzen das nur teilweise um. |
 
+Im erweiterten Modus (**Nur in bestimmten Bereichen erkennen**) wird das Bild in 16×12 Felder geteilt. Auf dem Standbild der Kamera malst du per Klicken und Ziehen die Felder an, in denen Bewegung zählt; alles andere (Straße, Baum, Nachbargrundstück) wird ignoriert. Die Empfindlichkeit bezieht sich dann auf die überwachte Fläche.
+
 | Vorlauf | Was passiert |
 | --- | --- |
 | 0 Sekunden | ffmpeg startet erst mit der Bewegungsmeldung und hört nach dem Nachlauf wieder auf. Ohne Bewegung läuft nichts. Bis die Verbindung steht, vergehen etwa 1 bis 3 Sekunden; dieser Anfang fehlt in der Aufnahme. |

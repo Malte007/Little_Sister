@@ -12,6 +12,7 @@
 	} from '#lib/api.js';
 	import { t, tError } from '#lib/i18n/index.svelte.js';
 	import Field from './Field.svelte';
+	import MotionZoneEditor from './MotionZoneEditor.svelte';
 
 	let {
 		initial,
@@ -39,6 +40,9 @@
 		maxRetentionDays: start.maxRetentionDays?.toString() ?? ''
 	});
 
+	// Erweiterter Modus: Erkennung nur in markierten Bereichen
+	let zonesEnabled = $state(start.motionZones !== null);
+
 	let errors = $state<Record<string, string>>({});
 	let error = $state<string>();
 	let busy = $state(false);
@@ -56,6 +60,7 @@
 			onvifAddress: form.onvifAddress.trim() || null,
 			preRollSeconds: Number(form.preRollSeconds || 0),
 			postRollSeconds: Number(form.postRollSeconds || 0),
+			motionZones: zonesEnabled ? form.motionZones : null,
 			quotaGb: Number(form.quotaGb),
 			maxRetentionDays: form.maxRetentionDays ? Number(form.maxRetentionDays) : null
 		};
@@ -259,6 +264,19 @@
 					<p class="muted small">{t('cameras.sensitivityHint')}</p>
 					{#if errors.motionSensitivity}<p class="error small">{errors.motionSensitivity}</p>{/if}
 				</div>
+				<label class="toggle" class:selected={zonesEnabled}>
+					<input type="checkbox" bind:checked={zonesEnabled} />
+					<span>
+						<strong>{t('cameras.zones')}</strong>
+						<span class="muted small">{t('cameras.zonesHint')}</span>
+					</span>
+				</label>
+				{#if zonesEnabled}
+					<div transition:slide={{ duration: 200 }}>
+						<MotionZoneEditor bind:value={form.motionZones} {cameraId} />
+						{#if errors.motionZones}<p class="error small">{errors.motionZones}</p>{/if}
+					</div>
+				{/if}
 			{:else}
 				<Field
 					label={t('cameras.onvifAddress')}

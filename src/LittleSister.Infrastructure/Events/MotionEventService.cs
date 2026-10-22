@@ -70,7 +70,7 @@ public sealed class MotionEventService(
                 || c.RecordingMode == RecordingMode.Continuous && c.MotionDetection == MotionDetection.Onvif && c.OnvifAddress != null)
             .ToListAsync(ct);
         var wanted = cameras.ToDictionary(c => c.Id, c => (Camera: c, Fingerprint: string.Join('|',
-            c.MotionDetection, c.MotionSensitivity, c.OnvifAddress, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword)));
+            c.MotionDetection, c.MotionSensitivity, c.MotionZones, c.OnvifAddress, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword)));
 
         foreach (var id in running.Keys.Where(id => !wanted.TryGetValue(id, out var w) || w.Fingerprint != running[id].Fingerprint).ToList())
             await StopAsync(id);

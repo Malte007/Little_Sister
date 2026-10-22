@@ -72,6 +72,23 @@ public class VideoMotionTests
     }
 
     [Fact]
+    public void Bereiche_BewegungAusserhalbZaehltNicht()
+    {
+        // Nur rechte Bildhälfte überwacht; das Quadrat bewegt sich links
+        var zones = string.Concat(Enumerable.Repeat(new string('0', 8) + new string('1', 8), MotionZones.Rows));
+        var detector = new MotionDetector(50, 5, MotionZones.ToMask(zones, VideoMotionSource.Width, VideoMotionSource.Height));
+        detector.Process(Gray(100));
+        detector.Process(WithBox(0, 12));
+        detector.Process(WithBox(15, 12));
+        Assert.False(detector.Active);
+
+        // Rechts wird sie erkannt
+        detector.Process(WithBox(50, 12));
+        detector.Process(WithBox(62, 12));
+        Assert.True(detector.Active);
+    }
+
+    [Fact]
     public void Schwelle_FaelltMitEmpfindlichkeit()
     {
         Assert.Equal(0.1, MotionDetector.AreaThreshold(1), 3);
