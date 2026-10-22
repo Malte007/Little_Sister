@@ -52,6 +52,26 @@ export async function api<T = void>(
 	return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** Stream-Adresse samt Zugangsdaten für Prüfung und Standbild; ohne Passwort gilt das gespeicherte der Kamera. */
+export interface StreamTarget {
+	url: string;
+	username: string | null;
+	password: string | null;
+	cameraId: string | null;
+}
+
+/** Holt ein Standbild direkt vom Stream (auch für noch nicht gespeicherte Kameras). */
+export async function streamSnapshot(target: StreamTarget): Promise<Blob> {
+	const response = await fetch('/api/cameras/snapshot', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(target),
+		credentials: 'same-origin'
+	});
+	if (!response.ok) throw await toApiError(response);
+	return response.blob();
+}
+
 /** Datentypen der API */
 export interface SetupStatus {
 	required: boolean;

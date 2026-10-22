@@ -8,7 +8,8 @@
 		type CameraInput,
 		type MotionDetection,
 		type RecordingMode,
-		type StreamProbeResult
+		type StreamProbeResult,
+		type StreamTarget
 	} from '#lib/api.js';
 	import { t, tError } from '#lib/i18n/index.svelte.js';
 	import Field from './Field.svelte';
@@ -86,6 +87,16 @@
 				error: e instanceof ApiError ? (e.field('url') ?? e.code) : 'network'
 			};
 		}
+	}
+
+	/** Für das Standbild der Erkennungsbereiche: der Substream genügt und lädt schneller. */
+	function snapshotSource(): StreamTarget {
+		return {
+			url: form.subStreamUrl.trim() || form.mainStreamUrl.trim(),
+			username: form.username || null,
+			password: form.password || null,
+			cameraId: cameraId ?? null
+		};
 	}
 
 	/** Prüft Haupt- und (falls angegeben) Substream gleichzeitig. */
@@ -273,7 +284,7 @@
 				</label>
 				{#if zonesEnabled}
 					<div transition:slide={{ duration: 200 }}>
-						<MotionZoneEditor bind:value={form.motionZones} {cameraId} />
+						<MotionZoneEditor bind:value={form.motionZones} source={snapshotSource} />
 						{#if errors.motionZones}<p class="error small">{errors.motionZones}</p>{/if}
 					</div>
 				{/if}
