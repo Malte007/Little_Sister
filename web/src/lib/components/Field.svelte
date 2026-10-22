@@ -3,12 +3,16 @@
 	import type { HTMLInputAttributes } from 'svelte/elements';
 	import { slide } from 'svelte/transition';
 
+	// Eindeutige ID ohne crypto.randomUUID(): das gibt es nur unter HTTPS oder localhost,
+	// nicht bei http://<IP> im Heimnetz
+	const uid = $props.id();
+
 	let {
 		label,
 		value = $bindable(''),
 		hint,
 		error,
-		id = crypto.randomUUID(),
+		id = uid,
 		...rest
 	}: HTMLInputAttributes & {
 		label: string;
