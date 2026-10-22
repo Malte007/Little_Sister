@@ -27,21 +27,17 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 
 Little Sister läuft als systemd-Dienst direkt auf dem Server. Das Skript `scripts/install-ubuntu.sh` baut Oberfläche und Backend, installiert go2rtc, legt den Dienstbenutzer `littlesister` an und richtet den Dienst ein. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten.
 
-Einmalig die Voraussetzungen installieren (die Befehle funktionieren in fish und bash):
+Das Skript braucht .NET 10 SDK, ffmpeg und Node.js ab 22.12 (zum Bauen der Oberfläche). Fehlt davon etwas, listet es die fehlenden Programme auf und installiert sie nach Rückfrage: .NET 10 und ffmpeg per apt (bei älteren Ubuntu-Versionen über `ppa:dotnet/backports`, ebenfalls nach Rückfrage), Node.js 24 über die Paketquelle von NodeSource. Vorher wird nur git zum Herunterladen gebraucht:
 
 ```fish
 sudo apt update
-sudo apt install -y git curl ffmpeg dotnet-sdk-10.0
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
+sudo apt install -y git
 ```
 
 | Zeile | Wirkung |
 | --- | --- |
 | `sudo apt update` | lädt die aktuellen Paketlisten |
-| `sudo apt install -y git curl ffmpeg dotnet-sdk-10.0` | installiert git, curl, ffmpeg (Aufnahme) und das .NET 10 SDK (Bauen). Findet apt `dotnet-sdk-10.0` nicht (ältere Ubuntu-Versionen), vorher `sudo add-apt-repository ppa:dotnet/backports` ausführen |
-| `curl … setup_24.x \| sudo -E bash -` | richtet die Paketquelle für Node.js 24 ein (nur zum Bauen der Oberfläche nötig) |
-| `sudo apt install -y nodejs` | installiert Node.js 24 mit npm |
+| `sudo apt install -y git` | installiert git (auf Ubuntu-Server meist schon vorhanden) |
 
 Projekt holen und installieren:
 
