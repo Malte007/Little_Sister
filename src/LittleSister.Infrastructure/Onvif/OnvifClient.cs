@@ -93,11 +93,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
             var offset = await GetClockOffsetAsync(http, deviceUri, ct);
             var auth = credential is null ? null : new Auth(username!, password ?? "", offset);
 
-            var caps = await SendAsync(http, deviceUri, $"<GetCapabilities xmlns=\"{DeviceNs}\"><Category>Events</Category></GetCapabilities>", auth, ct);
-            var eventsAddress = caps.Descendants().FirstOrDefault(e => e.Name.LocalName == "Events")?
-                .Elements().FirstOrDefault(e => e.Name.LocalName == "XAddr")?.Value.Trim();
-            if (!Uri.TryCreate(eventsAddress, UriKind.Absolute, out var eventsUri))
-                throw new OnvifException("onvifNoEvents", "Die Kamera bietet keine ONVIF-Ereignisse an.");
+            var eventsUri = await FindEventsAddressAsync(http, deviceUri, auth, ct);
 
             var body = $"<CreatePullPointSubscription xmlns=\"{EventsNs}\"><InitialTerminationTime>{OnvifEventSubscription.Lifetime}</InitialTerminationTime></CreatePullPointSubscription>";
             var response = await SendAsync(http, eventsUri, body, auth, ct,
@@ -124,6 +120,61 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
             http.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Sucht die Adresse des Ereignisdienstes. Kameras antworten hier sehr unterschiedlich: manche nur auf
+    /// GetCapabilities mit "All", manche nur auf GetServices; manche melden eine unbrauchbare IP.
+    /// </summary>
+    private async Task<Uri> FindEventsAddressAsync(HttpClient http, Uri deviceUri, Auth? auth, CancellationToken ct)
+    {
+        var tried = new List<string>();
+        foreach (var (name, body) in new[]
+        {
+            ("GetCapabilities(Events)", $"<GetCapabilities xmlns=\"{DeviceNs}\"><Category>Events</Category></GetCapabilities>"),
+            ("GetCapabilities(All)", $"<GetCapabilities xmlns=\"{DeviceNs}\"><Category>All</Category></GetCapabilities>"),
+            ("GetServices", $"<GetServices xmlns=\"{DeviceNs}\"><IncludeCapability>false</IncludeCapability></GetServices>"),
+        })
+        {
+            try
+            {
+                var response = await SendAsync(http, deviceUri, body, auth, ct);
+                if (ParseEventsAddress(response, deviceUri) is { } uri)
+                    return uri;
+                tried.Add($"{name}: keine Adresse");
+            }
+            catch (OnvifException ex) when (ex.Code == "onvifFault")
+            {
+                // Nicht unterstützte Abfrage: nächste Variante probieren
+                tried.Add($"{name}: {ex.Message}");
+            }
+        }
+        throw new OnvifException("onvifNoEvents", $"Die Kamera nennt keinen Ereignisdienst ({string.Join("; ", tried)}).");
+    }
+
+    /// <summary>Liest die Adresse des Ereignisdienstes aus GetCapabilities- oder GetServices-Antworten.</summary>
+    internal static Uri? ParseEventsAddress(XElement body, Uri deviceUri)
+    {
+        var candidates = body.Descendants().Where(e => e.Name.LocalName == "Events")
+            .Select(e => e.Elements().FirstOrDefault(x => x.Name.LocalName == "XAddr")?.Value)
+            .Concat(body.Descendants().Where(e => e.Name.LocalName == "Service"
+                    && e.Elements().Any(x => x.Name.LocalName == "Namespace" && x.Value.Trim() == EventsNs))
+                .Select(e => e.Elements().FirstOrDefault(x => x.Name.LocalName == "XAddr")?.Value));
+
+        foreach (var candidate in candidates)
+        {
+            // Manche Kameras nennen mehrere Adressen durch Leerzeichen getrennt (z. B. IPv4 und IPv6)
+            foreach (var text in (candidate ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+                    continue;
+                // Unbrauchbare Hosts (0.0.0.0, localhost) durch die Adresse ersetzen, unter der die Kamera antwortet
+                if (uri.Host is "0.0.0.0" or "localhost" || uri.Host.StartsWith("127.", StringComparison.Ordinal))
+                    uri = new UriBuilder(uri) { Host = deviceUri.Host }.Uri;
+                return uri;
+            }
+        }
+        return null;
     }
 
     /// <summary>Holt neue Ereignisse ab; wartet höchstens <see cref="OnvifEventSubscription.PullTimeout"/>.</summary>

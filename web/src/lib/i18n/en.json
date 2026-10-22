@@ -115,7 +115,7 @@
 		"motionNeedsOnvif": "Recording on motion needs the camera’s ONVIF address.",
 		"outOfRange": "The value is out of the allowed range.",
 		"invalidRecordingMode": "Unknown recording mode.",
-		"onvifNoEvents": "The camera does not offer ONVIF events.",
+		"onvifNoEvents": "Little Sister cannot find an ONVIF event service on this camera. The camera’s answer is in the log.",
 		"eventsFailed": "Connecting to the camera’s events failed."
 	},
 	"status": {

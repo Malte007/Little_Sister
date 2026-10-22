@@ -21,7 +21,8 @@ public class OnvifEventTests
         """;
 
     /// <summary>Kamera mit PullPoint-Ereignissen; liefert beim ersten Abholen eine Bewegung.</summary>
-    private sealed class FakeEventCamera : HttpMessageHandler
+    /// <param name="onlyServices">Kamera kennt nur GetServices; GetCapabilities liefert einen Fehler.</param>
+    private sealed class FakeEventCamera(bool onlyServices = false) : HttpMessageHandler
     {
         public List<string> Requests { get; } = [];
 
@@ -33,6 +34,15 @@ public class OnvifEventTests
             var xml = body switch
             {
                 _ when body.Contains("GetSystemDateAndTime") => Answer("<tds:GetSystemDateAndTimeResponse xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"/>"),
+                _ when onlyServices && body.Contains("GetCapabilities") => Answer("""
+                    <s:Fault><s:Code><s:Value>s:Receiver</s:Value><s:Subcode><s:Value>ter:ActionNotSupported</s:Value></s:Subcode></s:Code><s:Reason><s:Text xml:lang="en">Not supported</s:Text></s:Reason></s:Fault>
+                    """),
+                _ when body.Contains("GetServices") => Answer("""
+                    <tds:GetServicesResponse xmlns:tds="http://www.onvif.org/ver10/device/wsdl">
+                      <tds:Service><tds:Namespace>http://www.onvif.org/ver10/media/wsdl</tds:Namespace><tds:XAddr>http://192.168.1.20:8000/onvif/media</tds:XAddr></tds:Service>
+                      <tds:Service><tds:Namespace>http://www.onvif.org/ver10/events/wsdl</tds:Namespace><tds:XAddr>http://192.168.1.20:8000/onvif/event_service</tds:XAddr></tds:Service>
+                    </tds:GetServicesResponse>
+                    """),
                 _ when body.Contains("GetCapabilities") => Answer("""
                     <tds:GetCapabilitiesResponse xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema"><tds:Capabilities><tt:Events><tt:XAddr>http://192.168.1.20:8000/onvif/event_service</tt:XAddr></tt:Events></tds:Capabilities></tds:GetCapabilitiesResponse>
                     """),
@@ -67,6 +77,29 @@ public class OnvifEventTests
         Assert.Contains("http://192.168.1.20:8000/onvif/pullpoint?id=7", pull); // an die Abonnement-Adresse
         Assert.Contains("IsReferenceParameter", pull); // Referenzparameter zurückgeschickt
         Assert.Contains(camera.Requests, r => r.Contains("Unsubscribe"));
+    }
+
+    [Fact]
+    public async Task Abonnement_FindetEreignisdienstUeberGetServices()
+    {
+        var camera = new FakeEventCamera(onlyServices: true);
+        var client = new OnvifClient(_ => camera, TimeProvider.System);
+
+        await using var subscription = await client.SubscribeEventsAsync("http://192.168.1.20:8000/onvif/device_service", "admin", "geheim");
+
+        Assert.Contains(camera.Requests, r => r.Contains("GetServices"));
+        Assert.Contains(camera.Requests, r => r.Contains("CreatePullPointSubscription"));
+    }
+
+    [Theory]
+    [InlineData("http://192.168.1.20/onvif/events", "http://192.168.1.20/onvif/events")]
+    [InlineData("http://0.0.0.0:8000/onvif/events", "http://192.168.1.20:8000/onvif/events")]
+    [InlineData("http://[fe80::1]/onvif/events http://192.168.1.20/ev", "http://[fe80::1]/onvif/events")]
+    [InlineData("kaputt http://192.168.1.20/ev", "http://192.168.1.20/ev")]
+    public void EreignisAdresse_WirdBereinigt(string xaddr, string expected)
+    {
+        var body = XElement.Parse($"<r><Capabilities><Events><XAddr>{xaddr}</XAddr></Events></Capabilities></r>");
+        Assert.Equal(new Uri(expected), OnvifClient.ParseEventsAddress(body, new Uri("http://192.168.1.20/onvif/device_service")));
     }
 
     [Fact]
