@@ -43,7 +43,11 @@
 			onvifAddress: null,
 			manufacturer: null,
 			model: null,
-			recordingEnabled: true,
+			recordingMode: 'Continuous',
+			preRollSeconds: 10,
+			postRollSeconds: 30,
+			motionDetection: 'Video',
+			motionSensitivity: 50,
 			quotaGb: 200,
 			maxRetentionDays: null,
 			rotation: 0

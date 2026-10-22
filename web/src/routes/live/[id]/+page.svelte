@@ -35,7 +35,7 @@
 		<h1>{camera.name}</h1>
 	</div>
 	<div class="controls">
-		<StatusPill state={camera.recordingEnabled ? status.state : 'Idle'} />
+		<StatusPill state={camera.recordingEnabled ? status.state : 'Idle'} motion={status.motion} />
 		{#if hasSub}
 			<div class="segmented" role="group" aria-label={t('live.quality')}>
 				<button class:active={!hd} onclick={() => (hd = false)}>{t('live.sd')}</button>

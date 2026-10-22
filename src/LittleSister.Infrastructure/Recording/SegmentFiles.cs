@@ -10,6 +10,9 @@ public static class SegmentFiles
 {
     public const string IncomingFolder = ".incoming";
 
+    /// <summary>Zwischenspeicher für den Vorlauf im Modus "Bei Bewegung"; wird nie in die Datenbank übernommen, solange keine Bewegung kommt.</summary>
+    public const string BufferFolder = ".buffer";
+
     /// <summary>Dateimuster für ffmpeg (strftime, mit TZ=UTC gestartet).</summary>
     public const string IncomingPattern = "%Y%m%dT%H%M%SZ.mp4";
 
@@ -18,6 +21,8 @@ public static class SegmentFiles
     public static string CameraFolder(string root, Guid cameraId) => Path.Combine(root, cameraId.ToString("N"));
 
     public static string IncomingDirectory(string root, Guid cameraId) => Path.Combine(CameraFolder(root, cameraId), IncomingFolder);
+
+    public static string BufferDirectory(string root, Guid cameraId) => Path.Combine(CameraFolder(root, cameraId), BufferFolder);
 
     /// <summary>Liest den Startzeitpunkt aus einem Dateinamen wie "20261021T120420Z.mp4".</summary>
     public static bool TryParseStart(string fileName, out DateTimeOffset startUtc) =>

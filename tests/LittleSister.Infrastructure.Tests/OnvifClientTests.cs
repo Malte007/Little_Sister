@@ -105,4 +105,15 @@ public class OnvifClientTests
         var ex = await Assert.ThrowsAsync<OnvifException>(() => client.ProbeAsync(address, null, null));
         Assert.Equal("onvifInvalidAddress", ex.Code);
     }
+
+    [Theory]
+    [InlineData("192.168.0.160", "http://192.168.0.160/onvif/device_service")]
+    [InlineData("192.168.0.160:8080", "http://192.168.0.160:8080/onvif/device_service")]
+    [InlineData(" http://192.168.0.160:8080 ", "http://192.168.0.160:8080/onvif/device_service")]
+    [InlineData("http://192.168.0.160:8080/", "http://192.168.0.160:8080/onvif/device_service")]
+    [InlineData("http://192.168.0.160:8080/onvif/device_service", "http://192.168.0.160:8080/onvif/device_service")]
+    [InlineData("http://192.168.0.160/onvif/service", "http://192.168.0.160/onvif/service")]
+    [InlineData("", "")]
+    public void Adresse_wird_vervollstaendigt(string input, string expected) =>
+        Assert.Equal(expected, OnvifClient.NormalizeDeviceAddress(input));
 }

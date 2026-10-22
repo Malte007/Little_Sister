@@ -24,6 +24,9 @@ public sealed class RetentionService(
 {
     private const long Gb = 1024L * 1024 * 1024;
 
+    /// <summary>So lange vor der ältesten Aufnahme bleiben Ereignisse noch erhalten.</summary>
+    private static readonly TimeSpan EventMargin = TimeSpan.FromHours(1);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(options.Value.Recording.RetentionIntervalSeconds), time);
@@ -83,6 +86,19 @@ public sealed class RetentionService(
 
         if (deleted > 0)
             logger.LogInformation("Ringspeicher: {Count} Segment(e) gelöscht", deleted);
+
+        // 4) Ereignisse ohne Aufnahme mehr dazu: deutlich älter als die älteste Aufnahme, oder älter als die maximale Aufbewahrung.
+        //    Der Abstand schützt Ereignisse, deren Aufnahme erst kurz nach dem Ende der Bewegung begann.
+        foreach (var camera in await db.Cameras.AsNoTracking().ToListAsync(ct))
+        {
+            var oldest = (await db.Segments.Where(s => s.CameraId == camera.Id)
+                .OrderBy(s => s.StartUtc).Select(s => (DateTimeOffset?)s.StartUtc).FirstOrDefaultAsync(ct)) - EventMargin;
+            var cutoff = RetentionPolicy.RetentionCutoff(camera.MaxRetentionDays, now);
+            if ((oldest, cutoff) is (null, null))
+                continue;
+            var before = oldest is { } o && cutoff is { } c ? (o > c ? o : c) : (oldest ?? cutoff)!.Value;
+            await db.Events.Where(e => e.CameraId == camera.Id && e.EndUtc != null && e.EndUtc < before).ExecuteDeleteAsync(ct);
+        }
         return deleted;
     }
 

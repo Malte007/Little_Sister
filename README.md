@@ -21,7 +21,7 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Kamerastatus live in der Oberfläche (SignalR) | fertig |
 | Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
 | Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | fertig |
-| Aufnahme bei Bewegung (ONVIF-Ereignisse, Marker auf der Zeitleiste) | folgt |
+| Aufnahme bei Bewegung (Erkennung im Bild oder per ONVIF, Vor- und Nachlauf, Bewegungen auf der Zeitleiste) | fertig |
 
 ## Installation auf einem Ubuntu-Server
 
@@ -98,12 +98,31 @@ Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wu
 
 Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Little Sister zu jedem Segment einen Bildstreifen mit einem Bild alle 10 Sekunden ab. Der Streifen entsteht nach der Aufnahme im Hintergrund aus den Schlüsselbildern, also mit wenig Rechenzeit. Für ältere Aufnahmen entsteht er beim ersten Überfahren. Wer die Rechenzeit sparen will, schaltet die Vorschaubilder unter **Kameras → Speicher** aus; dann entstehen keine neuen Bilder, und die Zeitleiste zeigt keine Vorschau.
 
+### Aufnahme bei Bewegung
+
+Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: **Dauerhaft**, **Bei Bewegung** oder **Aus**. Bei **Bei Bewegung** gibt es zwei Arten, Bewegung zu erkennen:
+
+| Erkennung | Wie | Voraussetzung |
+| --- | --- | --- |
+| **Im Bild** (Standard) | Ein eigener ffmpeg-Prozess dekodiert den Substream und liefert 5 Bilder/s, verkleinert auf 80×60 Graustufen. Little Sister zählt die Pixel, die deutlich vom gleitenden Hintergrund abweichen. Ab einem Mindestanteil (Regler **Empfindlichkeit**: 1 = 10 % des Bildes, 50 ≈ 1,4 %, 100 = 0,2 %) beginnt die Bewegung, nach 3 s Ruhe endet sie. Ändert sich fast das ganze Bild auf einmal (Licht, Nachtsicht), zählt das nicht. | jede Kamera; Substream empfohlen. CPU-Last gemessen: etwa 3 % eines Kerns bei 640×360, etwa 6 % bei 1280×720 (ohne Substream wird der Hauptstream dekodiert, das kostet mehr) |
+| **Von der Kamera (ONVIF)** | Die Kamera erkennt selbst und meldet per ONVIF-Ereignis. | ONVIF-Adresse (wird bei der Suche eingetragen; `http://IP:Port` genügt) und eingeschaltete Erkennung in der Kamera. Viele günstige Kameras setzen das nur teilweise um. |
+
+| Vorlauf | Was passiert |
+| --- | --- |
+| 0 Sekunden | ffmpeg startet erst mit der Bewegungsmeldung und hört nach dem Nachlauf wieder auf. Ohne Bewegung läuft nichts. Bis die Verbindung steht, vergehen etwa 1 bis 3 Sekunden; dieser Anfang fehlt in der Aufnahme. |
+| mehr als 0 | Der Stream läuft dauernd in einen kurzen Zwischenspeicher (`.buffer`), der laufend gelöscht wird. Kommt eine Bewegung, wird das Stück davor übernommen. Gespeichert wird in Stücken etwa so lang wie der Vorlauf, daher kann ein paar Sekunden mehr übrig bleiben. |
+
+Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung weiter aufgenommen wird. Bewegungen erscheinen auf der Zeitleiste als gelbe Balken über der Aufnahme; mit **‹ Bewegung** und **Bewegung ›** springt die Wiedergabe zur vorherigen oder nächsten. Im Kamerastatus zeigt **Wartet auf Bewegung**, dass gerade nichts gespeichert wird, und eine gelbe Marke **Bewegung**, dass die Kamera gerade Bewegung meldet. Bei Daueraufnahme werden Bewegungen nur bei Erkennung per ONVIF auf der Zeitleiste angezeigt; die Erkennung im Bild läuft nur im Modus „Bei Bewegung“, um Rechenzeit zu sparen.
+
+Bei Erkennung per ONVIF holt Little Sister die Meldungen bevorzugt selbst bei der Kamera ab (PullPoint). Kann eine Kamera das nicht (Fehler „ActionNotSupported“), schickt sie ihre Meldungen per HTTP an Little Sister (WS-BaseNotification) an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server erreichen: Der HTTP-Port (8080, in der Entwicklung 5080) darf von der Firewall nicht gesperrt sein, und Little Sister darf nicht nur auf `localhost` lauschen. Die Serveradresse ermittelt Little Sister selbst. Hinter NAT oder in Docker mit Bridge-Netz lässt sie sich mit `LittleSister__Events__CallbackUrl` vorgeben.
+
 ### Ablage der Aufnahmen
 
 ```
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC)
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.jpg   Vorschaubilder des Segments
 recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
+recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorlauf (nur bei Aufnahme bei Bewegung)
 ```
 
 Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment.
@@ -125,6 +144,7 @@ Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstri
 | `LittleSister__Live__ApiPort` | `1984` | go2rtc-API, nur auf 127.0.0.1 |
 | `LittleSister__Live__WebRtcPort` | `8555` | WebRTC-Port (TCP und UDP) |
 | `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse, z. B. `192.168.1.10:8555` bei Docker-Bridge oder NAT |
+| `LittleSister__Events__CallbackUrl` | automatisch | Adresse, unter der Kameras ohne PullPoint Little Sister erreichen, z. B. `http://192.168.1.10:8080` |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
 
 ## Alternativ: Docker (z. B. Unraid)
@@ -219,7 +239,7 @@ cd web && npm install && npm run dev
 
 | Zeile | Wirkung |
 | --- | --- |
-| `dotnet run --project src/LittleSister.Api` | startet die API auf http://localhost:5080 (Daten in `src/LittleSister.Api/data`) |
+| `dotnet run --project src/LittleSister.Api` | startet die API auf Port 5080, auch aus dem LAN erreichbar, damit Kameras Ereignisse schicken können (Daten in `src/LittleSister.Api/data`) |
 | `cd web && npm install && npm run dev` | installiert die Frontend-Pakete und startet die Oberfläche auf http://localhost:5173; `/api` wird an die API weitergeleitet |
 
 ### Einrichtung in Rider (Linux, fish)

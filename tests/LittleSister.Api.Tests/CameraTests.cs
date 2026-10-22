@@ -54,6 +54,47 @@ public class CameraTests
     }
 
     [Fact]
+    public async Task Aufnahmemodus_BewegungBrauchtOnvifUndGueltigeZeiten()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+
+        var created = await admin.PostAsJsonAsync("/api/cameras", new
+        {
+            name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, onvifAddress = "http://cam:8080",
+            recordingMode = "motion", preRollSeconds = 0, postRollSeconds = 2,
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var camera = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Motion", camera.GetProperty("recordingMode").GetString());
+        // Nur IP und Port eingegeben: Pfad zum Gerätedienst wird ergänzt
+        Assert.Equal("http://cam:8080/onvif/device_service", camera.GetProperty("onvifAddress").GetString());
+        Assert.Equal(0, camera.GetProperty("preRollSeconds").GetInt32());
+        Assert.Equal(2, camera.GetProperty("postRollSeconds").GetInt32());
+        Assert.True(camera.GetProperty("recordingEnabled").GetBoolean());
+
+        var noOnvif = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion", motionDetection = "Onvif" });
+        Assert.Contains("motionNeedsOnvif", await noOnvif.Content.ReadAsStringAsync());
+
+        // Standard ist die Bilderkennung; sie braucht keine ONVIF-Adresse
+        var video = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion", motionSensitivity = 70 });
+        Assert.Equal(HttpStatusCode.Created, video.StatusCode);
+        var videoCamera = await video.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Video", videoCamera.GetProperty("motionDetection").GetString());
+        Assert.Equal(70, videoCamera.GetProperty("motionSensitivity").GetInt32());
+
+        var badDetection = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, motionDetection = "Radar", motionSensitivity = 0 });
+        var detectionErrors = await badDetection.Content.ReadAsStringAsync();
+        Assert.Contains("invalidMotionDetection", detectionErrors);
+        Assert.Contains("motionSensitivity", detectionErrors);
+
+        var invalid = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Immer", preRollSeconds = -1 });
+        var errors = await invalid.Content.ReadAsStringAsync();
+        Assert.Contains("invalidRecordingMode", errors);
+        Assert.Contains("preRollSeconds", errors);
+    }
+
+    [Fact]
     public async Task Passwort_LiegtVerschluesseltInDerDatenbank()
     {
         using var factory = new LittleSisterFactory();

@@ -84,6 +84,16 @@ export function nextStart(map: MapEntry[], wall: number): number | null {
 	return map.find((e) => e.start > wall)?.start ?? null;
 }
 
+/**
+ * Beginn des vorherigen (dir -1) bzw. nächsten (dir 1) Ereignisses von der Uhrzeit aus; null, wenn keines mehr kommt.
+ * Rückwärts zählt ein Ereignis erst, wenn es mehr als zwei Sekunden zurückliegt, damit wiederholtes Drücken weiterspringt.
+ */
+export function eventNeighbor(starts: number[], wall: number, dir: -1 | 1): number | null {
+	const candidates = starts.filter((s) => (dir < 0 ? s < wall - 2000 : s > wall + 500));
+	if (candidates.length === 0) return null;
+	return dir < 0 ? Math.max(...candidates) : Math.min(...candidates);
+}
+
 /** Fasst aneinanderliegende Segmente für die Anzeige zu Blöcken zusammen (kleine Lücken zählen nicht). */
 export function mergeRanges(map: MapEntry[], toleranceMs = 3000): Range[] {
 	const ranges: Range[] = [];

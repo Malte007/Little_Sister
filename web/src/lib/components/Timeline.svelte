@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Zeitleiste eines Tages: aufgenommene Bereiche (je Kamera eine Spur), Ereignismarker, Abspielposition
+	// Zeitleiste eines Tages: aufgenommene Bereiche und Bewegungen (je Kamera eine Spur), Abspielposition
 	// und Export-Auswahl. Klick springt, Ziehen markiert einen Zeitraum, Mausrad zoomt um den Mauszeiger,
 	// Ziehen auf der Skala verschiebt den Ausschnitt. Beim Überfahren erscheint ein Vorschaubild.
 	import { untrack } from 'svelte';
@@ -11,7 +11,6 @@
 		from,
 		to,
 		lanes,
-		events = [],
 		position,
 		selection = null,
 		timeZone,
@@ -22,10 +21,8 @@
 		/** Tagesanfang und -ende in ms seit 1970 */
 		from: number;
 		to: number;
-		/** Aufgenommene Bereiche je Kamera; bei mehreren Kameras eine Spur je Kamera */
-		lanes: { label: string; ranges: Range[] }[];
-		/** Ereignisse (z. B. Bewegung) als Zeitpunkte */
-		events?: { time: number; kind: string }[];
+		/** Aufgenommene Bereiche und Bewegungen je Kamera; bei mehreren Kameras eine Spur je Kamera */
+		lanes: { label: string; ranges: Range[]; events?: Range[] }[];
 		/** Aktuelle Abspielposition (Uhrzeit) */
 		position: number | null;
 		/** Für den Export markierter Bereich */
@@ -284,6 +281,15 @@
 							></div>
 						{/if}
 					{/each}
+					{#each lane.events ?? [] as ev (ev.start)}
+						{#if visible(ev.start, ev.end)}
+							<div
+								class="event"
+								style:left="{Math.max(pct(ev.start), 0)}%"
+								style:right="{Math.max(100 - pct(ev.end), 0)}%"
+							></div>
+						{/if}
+					{/each}
 					{#if lanes.length > 1}<span class="lane-label">{lane.label}</span>{/if}
 				</div>
 			{/each}
@@ -294,11 +300,6 @@
 					style:right="{Math.max(100 - pct(sel.end), 0)}%"
 				></div>
 			{/if}
-			{#each events as ev (ev.time)}
-				{#if visible(ev.time, ev.time)}
-					<div class="event" style:left="{pct(ev.time)}%" title={withSeconds.format(ev.time)}></div>
-				{/if}
-			{/each}
 			{#if position !== null && visible(position, position)}
 				<div class="playhead" style:left="{pct(position)}%"></div>
 			{/if}
@@ -439,14 +440,15 @@
 		border-left: 2px solid var(--success);
 		border-right: 2px solid var(--success);
 	}
+	/* Bewegung als schmaler Balken oben in der Spur, auch kurze Ereignisse bleiben sichtbar */
 	.event {
 		position: absolute;
-		top: 0.2rem;
-		width: 0.5rem;
-		height: 0.5rem;
-		margin-left: -0.25rem;
-		border-radius: 50%;
-		background: var(--danger);
+		top: 0;
+		height: 30%;
+		min-width: 3px;
+		border-radius: 2px;
+		background: var(--motion);
+		pointer-events: none;
 	}
 	.hover {
 		position: absolute;
