@@ -21,7 +21,7 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 | Kamerastatus live in der Oberfläche (SignalR) | fertig |
 | Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
 | Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | fertig |
-| Aufnahme bei Bewegung (ONVIF-Ereignisse, Vor- und Nachlauf, Bewegungen auf der Zeitleiste) | fertig |
+| Aufnahme bei Bewegung (Erkennung im Bild oder per ONVIF, Vor- und Nachlauf, Bewegungen auf der Zeitleiste) | fertig |
 
 ## Installation auf einem Ubuntu-Server
 
@@ -100,16 +100,21 @@ Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Li
 
 ### Aufnahme bei Bewegung
 
-Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: **Dauerhaft**, **Bei Bewegung** oder **Aus**. Bei Bewegung erkennt die Kamera selbst die Bewegung und meldet sie per ONVIF (PullPoint-Ereignisse); Little Sister wertet kein Bild aus. Die Bewegungserkennung wird also in der Kamera eingeschaltet und eingestellt, und die Kamera braucht eine ONVIF-Adresse (wird bei der Suche automatisch eingetragen).
+Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: **Dauerhaft**, **Bei Bewegung** oder **Aus**. Bei **Bei Bewegung** gibt es zwei Arten, Bewegung zu erkennen:
+
+| Erkennung | Wie | Voraussetzung |
+| --- | --- | --- |
+| **Im Bild** (Standard) | Ein eigener ffmpeg-Prozess dekodiert den Substream und liefert 5 Bilder/s, verkleinert auf 80×60 Graustufen. Little Sister zählt die Pixel, die deutlich vom gleitenden Hintergrund abweichen. Ab einem Mindestanteil (Regler **Empfindlichkeit**: 1 = 10 % des Bildes, 50 ≈ 1,4 %, 100 = 0,2 %) beginnt die Bewegung, nach 3 s Ruhe endet sie. Ändert sich fast das ganze Bild auf einmal (Licht, Nachtsicht), zählt das nicht. | jede Kamera; Substream empfohlen. CPU-Last gemessen: etwa 3 % eines Kerns bei 640×360, etwa 6 % bei 1280×720 (ohne Substream wird der Hauptstream dekodiert, das kostet mehr) |
+| **Von der Kamera (ONVIF)** | Die Kamera erkennt selbst und meldet per ONVIF-Ereignis. | ONVIF-Adresse (wird bei der Suche eingetragen; `http://IP:Port` genügt) und eingeschaltete Erkennung in der Kamera. Viele günstige Kameras setzen das nur teilweise um. |
 
 | Vorlauf | Was passiert |
 | --- | --- |
 | 0 Sekunden | ffmpeg startet erst mit der Bewegungsmeldung und hört nach dem Nachlauf wieder auf. Ohne Bewegung läuft nichts. Bis die Verbindung steht, vergehen etwa 1 bis 3 Sekunden; dieser Anfang fehlt in der Aufnahme. |
 | mehr als 0 | Der Stream läuft dauernd in einen kurzen Zwischenspeicher (`.buffer`), der laufend gelöscht wird. Kommt eine Bewegung, wird das Stück davor übernommen. Gespeichert wird in Stücken etwa so lang wie der Vorlauf, daher kann ein paar Sekunden mehr übrig bleiben. |
 
-Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung weiter aufgenommen wird. Bewegungen erscheinen auf der Zeitleiste als gelbe Balken über der Aufnahme; mit **‹ Bewegung** und **Bewegung ›** springt die Wiedergabe zur vorherigen oder nächsten. Im Kamerastatus zeigt **Wartet auf Bewegung**, dass gerade nichts gespeichert wird, und eine gelbe Marke **Bewegung**, dass die Kamera gerade Bewegung meldet. Bei Kameras mit ONVIF-Adresse werden Bewegungen auch bei Daueraufnahme auf der Zeitleiste angezeigt.
+Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung weiter aufgenommen wird. Bewegungen erscheinen auf der Zeitleiste als gelbe Balken über der Aufnahme; mit **‹ Bewegung** und **Bewegung ›** springt die Wiedergabe zur vorherigen oder nächsten. Im Kamerastatus zeigt **Wartet auf Bewegung**, dass gerade nichts gespeichert wird, und eine gelbe Marke **Bewegung**, dass die Kamera gerade Bewegung meldet. Bei Daueraufnahme werden Bewegungen nur bei Erkennung per ONVIF auf der Zeitleiste angezeigt; die Erkennung im Bild läuft nur im Modus „Bei Bewegung“, um Rechenzeit zu sparen.
 
-Little Sister holt die Meldungen bevorzugt selbst bei der Kamera ab (PullPoint). Kann eine Kamera das nicht (Fehler „ActionNotSupported“), schickt sie ihre Meldungen per HTTP an Little Sister (WS-BaseNotification) an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server erreichen: Der HTTP-Port (8080, in der Entwicklung 5080) darf von der Firewall nicht gesperrt sein, und Little Sister darf nicht nur auf `localhost` lauschen. Die Serveradresse ermittelt Little Sister selbst. Hinter NAT oder in Docker mit Bridge-Netz lässt sie sich mit `LittleSister__Events__CallbackUrl` vorgeben.
+Bei Erkennung per ONVIF holt Little Sister die Meldungen bevorzugt selbst bei der Kamera ab (PullPoint). Kann eine Kamera das nicht (Fehler „ActionNotSupported“), schickt sie ihre Meldungen per HTTP an Little Sister (WS-BaseNotification) an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server erreichen: Der HTTP-Port (8080, in der Entwicklung 5080) darf von der Firewall nicht gesperrt sein, und Little Sister darf nicht nur auf `localhost` lauschen. Die Serveradresse ermittelt Little Sister selbst. Hinter NAT oder in Docker mit Bridge-Netz lässt sie sich mit `LittleSister__Events__CallbackUrl` vorgeben.
 
 ### Ablage der Aufnahmen
 

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace LittleSister.Infrastructure.Events;
 
 /// <summary>
-/// Hört für jede Kamera mit ONVIF-Adresse auf Bewegungsmeldungen und speichert sie als Ereignisse.
+/// Verfolgt für jede Kamera die Bewegung (Bilderkennung oder ONVIF) und speichert sie als Ereignisse.
 /// Die Ereignisse erscheinen auf der Zeitleiste; im Modus "Bei Bewegung" starten und stoppen sie
 /// über <see cref="MotionSignals"/> die Aufnahme.
 /// </summary>
@@ -63,10 +63,14 @@ public sealed class MotionEventService(
     {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LittleSisterDbContext>();
+        // Bilderkennung kostet etwas CPU und läuft nur, wo sie die Aufnahme steuert;
+        // ONVIF-Ereignisse kosten nichts und markieren auch bei Daueraufnahme die Zeitleiste
         var cameras = await db.Cameras.AsNoTracking()
-            .Where(c => c.OnvifAddress != null && c.RecordingMode != RecordingMode.Off)
+            .Where(c => c.RecordingMode == RecordingMode.Motion
+                || c.RecordingMode == RecordingMode.Continuous && c.MotionDetection == MotionDetection.Onvif && c.OnvifAddress != null)
             .ToListAsync(ct);
-        var wanted = cameras.ToDictionary(c => c.Id, c => (Camera: c, Fingerprint: string.Join('|', c.OnvifAddress, c.Username, c.ProtectedPassword)));
+        var wanted = cameras.ToDictionary(c => c.Id, c => (Camera: c, Fingerprint: string.Join('|',
+            c.MotionDetection, c.MotionSensitivity, c.OnvifAddress, c.MainStreamUrl, c.SubStreamUrl, c.Username, c.ProtectedPassword)));
 
         foreach (var id in running.Keys.Where(id => !wanted.TryGetValue(id, out var w) || w.Fingerprint != running[id].Fingerprint).ToList())
             await StopAsync(id);

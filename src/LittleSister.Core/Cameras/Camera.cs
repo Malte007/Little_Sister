@@ -25,8 +25,14 @@ public sealed class Camera
 
     public string? Model { get; set; }
 
-    /// <summary>Aus, dauernd oder nur bei Bewegung (ONVIF-Ereignisse der Kamera).</summary>
+    /// <summary>Aus, dauernd oder nur bei Bewegung.</summary>
     public RecordingMode RecordingMode { get; set; } = RecordingMode.Continuous;
+
+    /// <summary>Woher die Bewegung kommt: aus dem Bild (Little Sister) oder als ONVIF-Ereignis der Kamera.</summary>
+    public MotionDetection MotionDetection { get; set; } = MotionDetection.Video;
+
+    /// <summary>Empfindlichkeit der Bilderkennung, 1 (grob) bis 100 (sehr empfindlich).</summary>
+    public int MotionSensitivity { get; set; } = 50;
 
     /// <summary>Bei Bewegung: so viele Sekunden vor dem Ereignis aufheben.</summary>
     public int PreRollSeconds { get; set; } = 10;
@@ -58,4 +64,13 @@ public enum RecordingMode
     Continuous,
     /// <summary>Aufgenommen wird nur bei Bewegung samt Vor- und Nachlauf; ohne Vorlauf läuft der Stream nur während der Bewegung.</summary>
     Motion,
+}
+
+/// <summary>Quelle der Bewegungserkennung.</summary>
+public enum MotionDetection
+{
+    /// <summary>Little Sister vergleicht die Bilder des Substreams; geht mit jeder Kamera.</summary>
+    Video,
+    /// <summary>Die Kamera meldet Bewegung per ONVIF-Ereignis.</summary>
+    Onvif,
 }

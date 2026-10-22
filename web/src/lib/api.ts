@@ -83,8 +83,11 @@ export interface SystemInfo {
 /** Standby = wartet auf Bewegung, speichert nichts */
 export type CameraState = 'Idle' | 'Standby' | 'Connecting' | 'Recording' | 'Error';
 
-/** Off = keine Aufnahme, Continuous = rund um die Uhr, Motion = nur bei Bewegung (ONVIF) */
+/** Off = keine Aufnahme, Continuous = rund um die Uhr, Motion = nur bei Bewegung */
 export type RecordingMode = 'Off' | 'Continuous' | 'Motion';
+
+/** Video = Little Sister erkennt Bewegung im Bild, Onvif = die Kamera meldet sie */
+export type MotionDetection = 'Video' | 'Onvif';
 
 export interface CameraStatus {
 	state: CameraState;
@@ -92,10 +95,10 @@ export interface CameraStatus {
 	lastError: string | null;
 	restarts: number;
 	lastSegmentUtc: string | null;
-	/** Verbindung zu den ONVIF-Ereignissen */
+	/** Verbindung zur Bewegungserkennung (Bild oder ONVIF) */
 	events: 'None' | 'Connecting' | 'Connected' | 'Error';
 	eventError: string | null;
-	/** Meldet die Kamera gerade Bewegung? */
+	/** Läuft gerade eine Bewegung? */
 	motion: boolean;
 	lastMotionUtc: string | null;
 }
@@ -121,6 +124,9 @@ export interface Camera {
 	/** Sekunden vor bzw. nach einer Bewegung, die mit aufgehoben werden */
 	preRollSeconds: number;
 	postRollSeconds: number;
+	motionDetection: MotionDetection;
+	/** Empfindlichkeit der Bilderkennung, 1–100 */
+	motionSensitivity: number;
 	quotaGb: number;
 	maxRetentionDays: number | null;
 	/** Drehung im Uhrzeigersinn: 0, 90, 180 oder 270 */
@@ -148,6 +154,8 @@ export interface CameraInput {
 	recordingMode: RecordingMode;
 	preRollSeconds: number;
 	postRollSeconds: number;
+	motionDetection: MotionDetection;
+	motionSensitivity: number;
 	quotaGb: number;
 	maxRetentionDays: number | null;
 	rotation: number;

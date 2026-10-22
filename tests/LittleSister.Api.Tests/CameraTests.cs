@@ -73,8 +73,20 @@ public class CameraTests
         Assert.Equal(2, camera.GetProperty("postRollSeconds").GetInt32());
         Assert.True(camera.GetProperty("recordingEnabled").GetBoolean());
 
-        var noOnvif = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion" });
+        var noOnvif = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion", motionDetection = "Onvif" });
         Assert.Contains("motionNeedsOnvif", await noOnvif.Content.ReadAsStringAsync());
+
+        // Standard ist die Bilderkennung; sie braucht keine ONVIF-Adresse
+        var video = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion", motionSensitivity = 70 });
+        Assert.Equal(HttpStatusCode.Created, video.StatusCode);
+        var videoCamera = await video.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Video", videoCamera.GetProperty("motionDetection").GetString());
+        Assert.Equal(70, videoCamera.GetProperty("motionSensitivity").GetInt32());
+
+        var badDetection = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, motionDetection = "Radar", motionSensitivity = 0 });
+        var detectionErrors = await badDetection.Content.ReadAsStringAsync();
+        Assert.Contains("invalidMotionDetection", detectionErrors);
+        Assert.Contains("motionSensitivity", detectionErrors);
 
         var invalid = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Immer", preRollSeconds = -1 });
         var errors = await invalid.Content.ReadAsStringAsync();

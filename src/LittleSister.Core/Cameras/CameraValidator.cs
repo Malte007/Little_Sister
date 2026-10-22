@@ -11,9 +11,14 @@ public static class CameraValidator
     public const int MaxPreRollSeconds = 60;
     public const int MaxPostRollSeconds = 600;
 
+    /// <summary>Grenzen der Empfindlichkeit der Bilderkennung.</summary>
+    public const int MinSensitivity = 1;
+    public const int MaxSensitivity = 100;
+
     public static Dictionary<string, string[]> Validate(
         string? name, string? mainStreamUrl, string? subStreamUrl, double quotaGb, int? maxRetentionDays, int rotation = 0,
-        RecordingMode mode = RecordingMode.Continuous, string? onvifAddress = null, int preRollSeconds = 10, int postRollSeconds = 30)
+        RecordingMode mode = RecordingMode.Continuous, string? onvifAddress = null, int preRollSeconds = 10, int postRollSeconds = 30,
+        MotionDetection detection = MotionDetection.Video, int sensitivity = 50)
     {
         var errors = new Dictionary<string, string[]>();
 
@@ -35,8 +40,8 @@ public static class CameraValidator
         if (!Rotations.Contains(rotation))
             errors["rotation"] = ["invalidRotation"];
 
-        // Bewegung meldet die Kamera per ONVIF; ohne ONVIF-Adresse gäbe es nie ein Ereignis
-        if (mode == RecordingMode.Motion && string.IsNullOrWhiteSpace(onvifAddress))
+        // Meldet die Kamera die Bewegung per ONVIF, gäbe es ohne ONVIF-Adresse nie ein Ereignis
+        if (mode == RecordingMode.Motion && detection == MotionDetection.Onvif && string.IsNullOrWhiteSpace(onvifAddress))
             errors["recordingMode"] = ["motionNeedsOnvif"];
 
         if (preRollSeconds is < 0 or > MaxPreRollSeconds)
@@ -44,6 +49,9 @@ public static class CameraValidator
 
         if (postRollSeconds is < 0 or > MaxPostRollSeconds)
             errors["postRollSeconds"] = ["outOfRange"];
+
+        if (sensitivity is < MinSensitivity or > MaxSensitivity)
+            errors["motionSensitivity"] = ["outOfRange"];
 
         return errors;
     }

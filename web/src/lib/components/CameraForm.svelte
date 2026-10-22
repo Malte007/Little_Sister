@@ -6,6 +6,7 @@
 		api,
 		ApiError,
 		type CameraInput,
+		type MotionDetection,
 		type RecordingMode,
 		type StreamProbeResult
 	} from '#lib/api.js';
@@ -104,6 +105,7 @@
 	);
 
 	const modes: RecordingMode[] = ['Continuous', 'Motion', 'Off'];
+	const detections: MotionDetection[] = ['Video', 'Onvif'];
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -224,14 +226,49 @@
 
 	{#if form.recordingMode === 'Motion'}
 		<div transition:slide={{ duration: 200 }}>
-			<Field
-				label={t('cameras.onvifAddress')}
-				bind:value={form.onvifAddress}
-				placeholder="http://192.168.1.20:8000/onvif/device_service"
-				hint={t('cameras.onvifAddressHint')}
-				spellcheck="false"
-				error={errors.onvifAddress ?? errors.recordingMode}
-			/>
+			<fieldset class="modes">
+				<legend>{t('cameras.detection')}</legend>
+				{#each detections as detection (detection)}
+					<label class="toggle" class:selected={form.motionDetection === detection}>
+						<input
+							type="radio"
+							name="motionDetection"
+							value={detection}
+							bind:group={form.motionDetection}
+						/>
+						<span>
+							<strong>{t(`cameras.detection${detection}`)}</strong>
+							<span class="muted small">{t(`cameras.detection${detection}Hint`)}</span>
+						</span>
+					</label>
+				{/each}
+			</fieldset>
+			{#if form.motionDetection === 'Video'}
+				<div class="field">
+					<label for="sensitivity">
+						{t('cameras.sensitivity')}: <strong>{form.motionSensitivity}</strong>
+					</label>
+					<input
+						id="sensitivity"
+						type="range"
+						min="1"
+						max="100"
+						step="1"
+						bind:value={form.motionSensitivity}
+					/>
+					<p class="muted small">{t('cameras.sensitivityHint')}</p>
+					{#if errors.motionSensitivity}<p class="error small">{errors.motionSensitivity}</p>{/if}
+				</div>
+			{:else}
+				<Field
+					label={t('cameras.onvifAddress')}
+					bind:value={form.onvifAddress}
+					placeholder="http://192.168.1.20:8080"
+					hint={t('cameras.onvifAddressHint')}
+					spellcheck="false"
+					error={errors.onvifAddress ?? errors.recordingMode}
+				/>
+			{/if}
 			<div class="row">
 				<Field
 					label={t('cameras.preRoll')}

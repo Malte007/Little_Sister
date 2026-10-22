@@ -47,6 +47,7 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
             e.Ignore(c => c.RecordingEnabled);
             // Als Text, damit die Datenbank lesbar bleibt
             e.Property(c => c.RecordingMode).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.MotionDetection).HasConversion<string>().HasMaxLength(20);
         });
 
         builder.Entity<Segment>(e =>
