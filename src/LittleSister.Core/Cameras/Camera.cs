@@ -34,6 +34,9 @@ public sealed class Camera
     /// <summary>Empfindlichkeit der Bilderkennung, 1 (grob) bis 100 (sehr empfindlich).</summary>
     public int MotionSensitivity { get; set; } = 50;
 
+    /// <summary>Erkennungsbereiche für die Bilderkennung (siehe <see cref="Cameras.MotionZones"/>); null = ganzes Bild.</summary>
+    public string? MotionZones { get; set; }
+
     /// <summary>Bei Bewegung: so viele Sekunden vor dem Ereignis aufheben.</summary>
     public int PreRollSeconds { get; set; } = 10;
 

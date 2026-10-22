@@ -50,6 +50,10 @@ namespace LittleSister.Infrastructure.Data.Migrations
                     b.Property<int>("MotionSensitivity")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("MotionZones")
+                        .HasMaxLength(192)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)

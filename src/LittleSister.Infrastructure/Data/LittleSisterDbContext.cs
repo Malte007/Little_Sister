@@ -48,6 +48,7 @@ public sealed class LittleSisterDbContext(DbContextOptions<LittleSisterDbContext
             // Als Text, damit die Datenbank lesbar bleibt
             e.Property(c => c.RecordingMode).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.MotionDetection).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.MotionZones).HasMaxLength(MotionZones.Cells);
         });
 
         builder.Entity<Segment>(e =>

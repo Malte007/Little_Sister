@@ -83,6 +83,15 @@ public class CameraTests
         Assert.Equal("Video", videoCamera.GetProperty("motionDetection").GetString());
         Assert.Equal(70, videoCamera.GetProperty("motionSensitivity").GetInt32());
 
+        // Erkennungsbereiche: werden gespeichert; alle Felder aktiv heißt ganzes Bild
+        var zones = string.Concat(Enumerable.Repeat(new string('1', 8) + new string('0', 8), 12));
+        var zoned = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, recordingMode = "Motion", motionZones = zones });
+        Assert.Equal(zones, (await zoned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("motionZones").GetString());
+        var full = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, motionZones = new string('1', 192) });
+        Assert.Equal(JsonValueKind.Null, (await full.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("motionZones").ValueKind);
+        var empty = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, motionZones = new string('0', 192) });
+        Assert.Contains("invalidZones", await empty.Content.ReadAsStringAsync());
+
         var badDetection = await admin.PostAsJsonAsync("/api/cameras", new { name = "Hof", mainStreamUrl = "rtsp://cam/1", quotaGb = 1, motionDetection = "Radar", motionSensitivity = 0 });
         var detectionErrors = await badDetection.Content.ReadAsStringAsync();
         Assert.Contains("invalidMotionDetection", detectionErrors);

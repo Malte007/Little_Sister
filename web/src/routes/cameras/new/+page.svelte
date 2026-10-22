@@ -48,6 +48,7 @@
 			postRollSeconds: 30,
 			motionDetection: 'Video',
 			motionSensitivity: 50,
+			motionZones: null,
 			quotaGb: 200,
 			maxRetentionDays: null,
 			rotation: 0

@@ -16,6 +16,9 @@ public sealed class MotionDetector
     private const float BackgroundRate = 0.05f;
 
     private readonly float threshold;
+    // Nur diese Pixel werden ausgewertet; null = ganzes Bild
+    private readonly bool[]? mask;
+    private readonly int activePixels;
     private readonly int startFrames;
     private readonly int quietFrames;
     private float[]? background;
@@ -24,8 +27,11 @@ public sealed class MotionDetector
 
     /// <param name="sensitivity">1 (nur große Bewegung) bis 100 (schon kleinste Änderung).</param>
     /// <param name="framesPerSecond">Bildrate der Analyse, für die Zeitangaben.</param>
-    public MotionDetector(int sensitivity, int framesPerSecond)
+    /// <param name="mask">Überwachte Pixel (true); null = ganzes Bild. Die Empfindlichkeit bezieht sich auf diese Fläche.</param>
+    public MotionDetector(int sensitivity, int framesPerSecond, bool[]? mask = null)
     {
+        this.mask = mask is not null && mask.Contains(true) ? mask : null;
+        activePixels = this.mask?.Count(m => m) ?? 0;
         threshold = (float)AreaThreshold(sensitivity);
         // Beginn erst nach zwei auffälligen Bildern in Folge (gegen einzelne Störungen), Ende nach 3 s Ruhe
         startFrames = 2;
@@ -58,16 +64,17 @@ public sealed class MotionDetector
         }
 
         var changed = 0;
+        var useMask = mask is not null && mask.Length == frame.Length;
         for (var i = 0; i < frame.Length; i++)
         {
             var value = frame[i];
             var diff = value - background[i];
-            if (diff > PixelThreshold || diff < -PixelThreshold)
+            if ((diff > PixelThreshold || diff < -PixelThreshold) && (!useMask || mask![i]))
                 changed++;
             background[i] += (value - background[i]) * BackgroundRate;
         }
 
-        var share = (double)changed / frame.Length;
+        var share = (double)changed / (useMask ? activePixels : frame.Length);
         LastChange = share;
 
         if (share > LightingChange)

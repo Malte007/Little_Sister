@@ -70,7 +70,7 @@ public sealed class VideoMotionSource(
 
         try
         {
-            var detector = new MotionDetector(camera.MotionSensitivity, FramesPerSecond);
+            var detector = new MotionDetector(camera.MotionSensitivity, FramesPerSecond, MotionZones.ToMask(camera.MotionZones, Width, Height));
             var frame = new byte[Width * Height];
             var stream = process.StandardOutput.BaseStream;
             var first = true;
