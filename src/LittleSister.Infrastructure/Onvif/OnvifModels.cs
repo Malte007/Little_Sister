@@ -45,9 +45,6 @@ public sealed class OnvifEventSubscription(
     /// <summary>Adresse, an die die Kamera ihre Meldungen schickt (nur ohne PullPoint).</summary>
     public Uri? Consumer => consumer;
 
-    /// <summary>Warum PullPoint nicht ging, falls ersatzweise die Kamera selbst schickt.</summary>
-    public string? PullPointError { get; init; }
-
     /// <summary>Wie lange PullMessages auf neue Meldungen wartet.</summary>
     public static readonly TimeSpan PullTimeout = TimeSpan.FromSeconds(10);
 

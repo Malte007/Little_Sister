@@ -110,7 +110,7 @@ public sealed class MotionEventService(
                         LastMotionUtc = motion ? now : s.LastMotionUtc,
                     });
                     signals.Set(camera.Id, motion, now);
-                    logger.LogInformation("Bewegung {Camera}: {State}", camera.Name, motion ? "ja" : "nein");
+                    logger.LogDebug("Bewegung {Camera}: {State}", camera.Name, motion ? "ja" : "nein");
                     if (motion)
                         await BeginAsync(camera.Id, now, ct);
                     else

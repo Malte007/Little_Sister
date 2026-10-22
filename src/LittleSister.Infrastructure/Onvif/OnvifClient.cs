@@ -130,7 +130,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
             catch (OnvifException ex) when (ex.Code == "onvifFault" && push is not null)
             {
                 // Kein PullPoint (z. B. "ActionNotSupported"): Die Kamera soll ihre Meldungen selbst schicken
-                return await SubscribePushAsync(http, eventsUri, auth, push, $"{ex.Message} (an {eventsUri})", ct);
+                return await SubscribePushAsync(http, eventsUri, auth, push, ex.Message, ct);
             }
 
             var (subscriptionUri, parameters) = ParseSubscriptionReference(response);
@@ -167,10 +167,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
             }
 
             var (managerUri, parameters) = ParseSubscriptionReference(response);
-            return new OnvifEventSubscription(this, http, managerUri, parameters, auth, events, () => push.Unregister(token), consumer)
-            {
-                PullPointError = pullPointError,
-            };
+            return new OnvifEventSubscription(this, http, managerUri, parameters, auth, events, () => push.Unregister(token), consumer);
         }
         catch
         {
