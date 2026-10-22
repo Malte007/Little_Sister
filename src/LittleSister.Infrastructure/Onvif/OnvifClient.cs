@@ -145,7 +145,7 @@ public sealed class OnvifClient(Func<NetworkCredential?, HttpMessageHandler> han
             }
 
             var (managerUri, parameters) = ParseSubscriptionReference(response);
-            return new OnvifEventSubscription(this, http, managerUri, parameters, auth, events, () => push.Unregister(token));
+            return new OnvifEventSubscription(this, http, managerUri, parameters, auth, events, () => push.Unregister(token), consumer);
         }
         catch
         {

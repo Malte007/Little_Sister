@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using LittleSister.Core.Cameras;
 using LittleSister.Infrastructure.Onvif;
 using LittleSister.Infrastructure.Security;
+using Microsoft.Extensions.Logging;
 
 namespace LittleSister.Infrastructure.Events;
 
@@ -14,15 +15,21 @@ public interface IMotionSource
 
 /// <summary>Bewegung aus den ONVIF-Ereignissen der Kamera (PullPoint, ersatzweise von der Kamera geschickt).</summary>
 public sealed class OnvifMotionSource(
-    OnvifClient onvif, CameraCredentialProtector credentials, IOnvifEventCallback callback, TimeProvider time) : IMotionSource
+    OnvifClient onvif, CameraCredentialProtector credentials, IOnvifEventCallback callback, TimeProvider time,
+    ILogger<OnvifMotionSource> logger) : IMotionSource
 {
     public async IAsyncEnumerable<bool> WatchAsync(Camera camera, [EnumeratorCancellation] CancellationToken ct)
     {
         await using var subscription = await onvif.SubscribeEventsAsync(
             camera.OnvifAddress!, camera.Username, credentials.Unprotect(camera.ProtectedPassword), ct, callback);
 
+        logger.LogInformation("Ereignisse von {Camera} abonniert: {Mode}", camera.Name,
+            subscription.Consumer is { } consumer ? $"Kamera schickt selbst an {consumer}" : "PullPoint");
+
         // Zustand je Thema und Quelle; Bewegung, solange irgendeine davon aktiv ist
         var states = new Dictionary<string, bool>();
+        // Jede Art Meldung einmal protokollieren: zeigt, was die Kamera überhaupt schickt
+        var seen = new HashSet<string>();
         bool? last = null;
         var renewAt = time.GetUtcNow() + OnvifEventSubscription.RenewInterval;
 
@@ -30,8 +37,14 @@ public sealed class OnvifMotionSource(
         {
             var started = time.GetUtcNow();
             var events = await subscription.PullAsync(ct);
-            foreach (var e in events.Where(e => e.IsMotion && e.Active is not null))
-                states[$"{e.Topic}|{e.Source}"] = e.Active!.Value;
+            foreach (var e in events)
+            {
+                if (seen.Add($"{e.Topic}|{e.Source}"))
+                    logger.LogInformation("Meldung von {Camera}: {Topic} [{Source}] = {Active} ({Kind})", camera.Name, e.Topic, e.Source,
+                        e.Active?.ToString() ?? "?", e.IsMotion ? "Bewegung" : "wird nicht ausgewertet");
+                if (e.IsMotion && e.Active is not null)
+                    states[$"{e.Topic}|{e.Source}"] = e.Active.Value;
+            }
 
             var active = states.Values.Any(v => v);
             if (active != last)

@@ -39,9 +39,12 @@ public sealed record OnvifEvent(string Topic, string Source, bool? Active)
 /// </summary>
 public sealed class OnvifEventSubscription(
     OnvifClient client, HttpClient http, Uri address, string referenceParameters, OnvifClient.Auth? auth,
-    System.Threading.Channels.ChannelReader<IReadOnlyList<OnvifEvent>>? pushed = null, Action? onDispose = null)
+    System.Threading.Channels.ChannelReader<IReadOnlyList<OnvifEvent>>? pushed = null, Action? onDispose = null, Uri? consumer = null)
     : IAsyncDisposable
 {
+    /// <summary>Adresse, an die die Kamera ihre Meldungen schickt (nur ohne PullPoint).</summary>
+    public Uri? Consumer => consumer;
+
     /// <summary>Wie lange PullMessages auf neue Meldungen wartet.</summary>
     public static readonly TimeSpan PullTimeout = TimeSpan.FromSeconds(10);
 
