@@ -1,4 +1,7 @@
+using System.Xml;
+using System.Xml.Linq;
 using LittleSister.Api.Security;
+using LittleSister.Infrastructure.Events;
 using LittleSister.Infrastructure.Onvif;
 
 namespace LittleSister.Api.Endpoints;
@@ -11,6 +14,38 @@ internal static class OnvifEndpoints
         var group = api.MapGroup("/onvif").RequireAuthorization(Policies.Admin).WithTags("ONVIF");
         group.MapPost("/discover", Discover);
         group.MapPost("/probe", Probe);
+
+        // Meldungen von Kameras ohne PullPoint: ohne Anmeldung, geschützt durch den zufälligen Schlüssel im Pfad
+        api.MapPost("/onvif/events/{token}", Notify).AllowAnonymous().ExcludeFromDescription();
+    }
+
+    /// <summary>Größte angenommene Notify-Nachricht; echte Meldungen haben wenige Kilobyte.</summary>
+    private const int MaxNotifyBytes = 256 * 1024;
+
+    private static async Task<IResult> Notify(string token, HttpRequest request, OnvifEventCallback callback, CancellationToken ct)
+    {
+        if (request.ContentLength > MaxNotifyBytes)
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
+        using var buffer = new MemoryStream();
+        await request.Body.CopyToAsync(buffer, ct);
+        if (buffer.Length > MaxNotifyBytes)
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        buffer.Position = 0;
+
+        XDocument doc;
+        try
+        {
+            // Keine DTDs und keine externen Verweise auswerten
+            using var reader = XmlReader.Create(buffer, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            doc = XDocument.Load(reader);
+        }
+        catch (XmlException)
+        {
+            return Results.BadRequest();
+        }
+
+        return callback.Deliver(token, doc.Root!) ? Results.Ok() : Results.NotFound();
     }
 
     internal sealed record ProbeRequest(string Address, string? Username, string? Password);

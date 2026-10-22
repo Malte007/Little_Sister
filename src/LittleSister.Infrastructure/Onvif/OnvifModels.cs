@@ -32,8 +32,14 @@ public sealed record OnvifEvent(string Topic, string Source, bool? Active)
     public bool IsMotion => Topic.Contains("Motion", StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>Ein laufendes PullPoint-Abonnement; beim Freigeben wird es bei der Kamera abgemeldet.</summary>
-public sealed class OnvifEventSubscription(OnvifClient client, HttpClient http, Uri address, string referenceParameters, OnvifClient.Auth? auth)
+/// <summary>
+/// Ein laufendes Ereignis-Abonnement; beim Freigeben wird es bei der Kamera abgemeldet.
+/// Ohne <paramref name="pushed"/> fragt Little Sister die Kamera ab (PullPoint), sonst schickt die Kamera
+/// ihre Meldungen selbst und <paramref name="address"/> ist nur noch zum Verlängern und Abmelden da.
+/// </summary>
+public sealed class OnvifEventSubscription(
+    OnvifClient client, HttpClient http, Uri address, string referenceParameters, OnvifClient.Auth? auth,
+    System.Threading.Channels.ChannelReader<IReadOnlyList<OnvifEvent>>? pushed = null, Action? onDispose = null)
     : IAsyncDisposable
 {
     /// <summary>Wie lange PullMessages auf neue Meldungen wartet.</summary>
@@ -48,7 +54,31 @@ public sealed class OnvifEventSubscription(OnvifClient client, HttpClient http, 
     internal string ReferenceParameters => referenceParameters;
     internal OnvifClient.Auth? Auth => auth;
 
-    public Task<IReadOnlyList<OnvifEvent>> PullAsync(CancellationToken ct) => client.PullAsync(this, ct);
+    /// <summary>Kamera schickt ihre Meldungen selbst (WS-BaseNotification)?</summary>
+    public bool IsPush => pushed is not null;
+
+    /// <summary>Neue Meldungen; wartet höchstens <see cref="PullTimeout"/>.</summary>
+    public Task<IReadOnlyList<OnvifEvent>> PullAsync(CancellationToken ct) =>
+        pushed is null ? client.PullAsync(this, ct) : ReadPushedAsync(pushed, ct);
+
+    private static async Task<IReadOnlyList<OnvifEvent>> ReadPushedAsync(
+        System.Threading.Channels.ChannelReader<IReadOnlyList<OnvifEvent>> reader, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(PullTimeout);
+        try
+        {
+            await reader.WaitToReadAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return [];
+        }
+        var result = new List<OnvifEvent>();
+        while (reader.TryRead(out var batch))
+            result.AddRange(batch);
+        return result;
+    }
 
     public Task RenewAsync(CancellationToken ct) => client.RenewAsync(this, ct);
 
@@ -60,6 +90,19 @@ public sealed class OnvifEventSubscription(OnvifClient client, HttpClient http, 
             await client.UnsubscribeAsync(this, cts.Token);
         }
         catch (Exception ex) when (ex is OnvifException or OperationCanceledException) { /* Läuft bei der Kamera ohnehin ab */ }
+        onDispose?.Invoke();
         http.Dispose();
     }
+}
+
+/// <summary>Empfang für Meldungen, die Kameras per WS-BaseNotification an Little Sister schicken.</summary>
+public interface IOnvifEventCallback
+{
+    /// <summary>Neue Empfangsstelle mit zufälligem Schlüssel; die Meldungen kommen über den Kanal.</summary>
+    (string Token, System.Threading.Channels.ChannelReader<IReadOnlyList<OnvifEvent>> Events) Register();
+
+    void Unregister(string token);
+
+    /// <summary>Adresse, unter der die Kamera Little Sister erreicht.</summary>
+    Uri AddressFor(string cameraHost, string token);
 }

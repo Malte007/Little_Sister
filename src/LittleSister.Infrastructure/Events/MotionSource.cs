@@ -12,13 +12,14 @@ public interface IMotionSource
     IAsyncEnumerable<bool> WatchAsync(Camera camera, CancellationToken ct);
 }
 
-/// <summary>Bewegung aus den ONVIF-Ereignissen der Kamera (PullPoint-Abonnement).</summary>
-public sealed class OnvifMotionSource(OnvifClient onvif, CameraCredentialProtector credentials, TimeProvider time) : IMotionSource
+/// <summary>Bewegung aus den ONVIF-Ereignissen der Kamera (PullPoint, ersatzweise von der Kamera geschickt).</summary>
+public sealed class OnvifMotionSource(
+    OnvifClient onvif, CameraCredentialProtector credentials, IOnvifEventCallback callback, TimeProvider time) : IMotionSource
 {
     public async IAsyncEnumerable<bool> WatchAsync(Camera camera, [EnumeratorCancellation] CancellationToken ct)
     {
         await using var subscription = await onvif.SubscribeEventsAsync(
-            camera.OnvifAddress!, camera.Username, credentials.Unprotect(camera.ProtectedPassword), ct);
+            camera.OnvifAddress!, camera.Username, credentials.Unprotect(camera.ProtectedPassword), ct, callback);
 
         // Zustand je Thema und Quelle; Bewegung, solange irgendeine davon aktiv ist
         var states = new Dictionary<string, bool>();

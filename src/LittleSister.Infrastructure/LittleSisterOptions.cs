@@ -24,6 +24,8 @@ public sealed class LittleSisterOptions
 
     public LiveOptions Live { get; set; } = new();
 
+    public EventOptions Events { get; set; } = new();
+
     public string GetFullKeysPath() => Path.GetFullPath(KeysPath ?? Path.Combine(DataPath, "keys"));
 
     /// <summary>Liefert den Datenordner als absoluten Pfad.</summary>
@@ -68,4 +70,14 @@ public sealed class LiveOptions
 
     /// <summary>Zusätzliche WebRTC-Adressen, z. B. "192.168.1.10:8555" hinter NAT oder Docker-Bridge.</summary>
     public List<string> WebRtcCandidates { get; set; } = [];
+}
+
+/// <summary>Kamera-Ereignisse (Bewegung).</summary>
+public sealed class EventOptions
+{
+    /// <summary>
+    /// Adresse, unter der Kameras Little Sister erreichen, z. B. "http://192.168.1.10:8080".
+    /// Nur für Kameras ohne PullPoint nötig, die ihre Meldungen selbst schicken; leer = automatisch ermitteln.
+    /// </summary>
+    public string? CallbackUrl { get; set; }
 }

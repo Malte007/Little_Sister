@@ -62,6 +62,8 @@ public static class DependencyInjection
 
         // Bewegung: ONVIF-Ereignisse der Kameras als Ereignisse speichern
         services.AddSingleton<MotionSignals>();
+        services.AddSingleton<OnvifEventCallback>();
+        services.AddSingleton<IOnvifEventCallback>(sp => sp.GetRequiredService<OnvifEventCallback>());
         services.AddSingleton<IMotionSource, OnvifMotionSource>();
         services.AddSingleton<MotionEventService>();
         services.AddHostedService(sp => sp.GetRequiredService<MotionEventService>());

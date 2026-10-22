@@ -22,14 +22,21 @@ public class OnvifEventTests
 
     /// <summary>Kamera mit PullPoint-Ereignissen; liefert beim ersten Abholen eine Bewegung.</summary>
     /// <param name="onlyServices">Kamera kennt nur GetServices; GetCapabilities liefert einen Fehler.</param>
-    private sealed class FakeEventCamera(bool onlyServices = false) : HttpMessageHandler
+    /// <param name="noPullPoint">Kamera kann kein PullPoint, nur Subscribe (sie schickt ihre Meldungen selbst).</param>
+    private sealed class FakeEventCamera(bool onlyServices = false, bool noPullPoint = false) : HttpMessageHandler
     {
         public List<string> Requests { get; } = [];
+        public List<string?> ContentTypes { get; } = [];
+
+        private const string NotSupported = """
+            <s:Fault><s:Code><s:Value>s:Receiver</s:Value><s:Subcode><s:Value>ter:ActionNotSupported</s:Value></s:Subcode></s:Code><s:Reason><s:Text xml:lang="en">Action Not Implemented</s:Text></s:Reason></s:Fault>
+            """;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var body = await request.Content!.ReadAsStringAsync(ct);
             Requests.Add(body);
+            ContentTypes.Add(request.Content.Headers.ContentType?.ToString());
             string Answer(string inner) => string.Format(Envelope, inner);
             var xml = body switch
             {
@@ -45,6 +52,12 @@ public class OnvifEventTests
                     """),
                 _ when body.Contains("GetCapabilities") => Answer("""
                     <tds:GetCapabilitiesResponse xmlns:tds="http://www.onvif.org/ver10/device/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema"><tds:Capabilities><tt:Events><tt:XAddr>http://192.168.1.20:8000/onvif/event_service</tt:XAddr></tt:Events></tds:Capabilities></tds:GetCapabilitiesResponse>
+                    """),
+                _ when noPullPoint && body.Contains("CreatePullPointSubscription") => Answer(NotSupported),
+                _ when body.Contains("<Subscribe ") => Answer("""
+                    <wsnt:SubscribeResponse xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2" xmlns:wsa="http://www.w3.org/2005/08/addressing">
+                      <wsnt:SubscriptionReference><wsa:Address>http://192.168.1.20:8000/onvif/subscription?id=9</wsa:Address></wsnt:SubscriptionReference>
+                    </wsnt:SubscribeResponse>
                     """),
                 _ when body.Contains("CreatePullPointSubscription") => Answer("""
                     <tev:CreatePullPointSubscriptionResponse xmlns:tev="http://www.onvif.org/ver10/events/wsdl" xmlns:wsa="http://www.w3.org/2005/08/addressing">
@@ -89,6 +102,54 @@ public class OnvifEventTests
 
         Assert.Contains(camera.Requests, r => r.Contains("GetServices"));
         Assert.Contains(camera.Requests, r => r.Contains("CreatePullPointSubscription"));
+    }
+
+    /// <summary>Rückruf-Empfang für Tests: feste Adresse, Meldungen schiebt der Test selbst hinein.</summary>
+    private sealed class FakeCallback : IOnvifEventCallback
+    {
+        public System.Threading.Channels.Channel<IReadOnlyList<OnvifEvent>> Channel { get; } =
+            System.Threading.Channels.Channel.CreateUnbounded<IReadOnlyList<OnvifEvent>>();
+        public string? Unregistered { get; private set; }
+
+        public (string Token, System.Threading.Channels.ChannelReader<IReadOnlyList<OnvifEvent>> Events) Register() => ("abc", Channel.Reader);
+        public void Unregister(string token) => Unregistered = token;
+        public Uri AddressFor(string cameraHost, string token) => new($"http://192.168.1.10:8080/api/onvif/events/{token}");
+    }
+
+    [Fact]
+    public async Task OhnePullPoint_MeldetSichMitRueckrufadresseAn()
+    {
+        var camera = new FakeEventCamera(noPullPoint: true);
+        var callback = new FakeCallback();
+        var client = new OnvifClient(_ => camera, TimeProvider.System);
+
+        await using (var subscription = await client.SubscribeEventsAsync(
+            "http://192.168.1.20:8000/onvif/device_service", "admin", "geheim", CancellationToken.None, callback))
+        {
+            Assert.True(subscription.IsPush);
+            var subscribe = camera.Requests.Single(r => r.Contains("<Subscribe "));
+            Assert.Contains("http://192.168.1.10:8080/api/onvif/events/abc", subscribe);
+
+            // Von der Kamera geschickte Meldungen kommen beim Abholen an
+            callback.Channel.Writer.TryWrite(OnvifClient.ParseNotifications(XElement.Parse($"<r>{Motion(true)}</r>")));
+            var events = await subscription.PullAsync(CancellationToken.None);
+            Assert.True(Assert.Single(events).Active);
+        }
+
+        // Abmelden an der Adresse des Abonnements, Empfang wieder freigegeben
+        Assert.Contains(camera.Requests, r => r.Contains("Unsubscribe") && r.Contains("subscription?id=9"));
+        Assert.Equal("abc", callback.Unregistered);
+        // Aktion auch im Content-Type, manche Kameras ordnen Anfragen nur darüber zu
+        Assert.Contains(camera.ContentTypes, c => c!.Contains("action=\"http://docs.oasis-open.org/wsn/bw-2/NotificationProducer/SubscribeRequest\""));
+    }
+
+    [Fact]
+    public async Task OhnePullPointUndOhneRueckruf_FehlerBleibt()
+    {
+        var client = new OnvifClient(_ => new FakeEventCamera(noPullPoint: true), TimeProvider.System);
+        var ex = await Assert.ThrowsAsync<OnvifException>(() =>
+            client.SubscribeEventsAsync("http://192.168.1.20:8000/onvif/device_service", "admin", "geheim"));
+        Assert.Equal("onvifFault", ex.Code);
     }
 
     [Theory]

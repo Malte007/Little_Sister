@@ -116,7 +116,10 @@
 		"outOfRange": "The value is out of the allowed range.",
 		"invalidRecordingMode": "Unknown recording mode.",
 		"onvifNoEvents": "Little Sister cannot find an ONVIF event service on this camera. The camera’s answer is in the log.",
-		"eventsFailed": "Connecting to the camera’s events failed."
+		"eventsFailed": "Connecting to the camera’s events failed.",
+		"onvifNoEventSubscription": "The camera rejects both kinds of event subscription (PullPoint and Subscribe). See the log for details.",
+		"eventsCallbackLocalhost": "The camera sends its events itself but cannot reach Little Sister, which only listens on localhost. Listen on 0.0.0.0 or set LittleSister__Events__CallbackUrl.",
+		"eventsCallbackUnavailable": "Little Sister has no address the camera could deliver its events to. Please set LittleSister__Events__CallbackUrl."
 	},
 	"status": {
 		"Idle": "Off",

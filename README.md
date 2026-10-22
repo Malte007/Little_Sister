@@ -109,6 +109,8 @@ Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: 
 
 Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung weiter aufgenommen wird. Bewegungen erscheinen auf der Zeitleiste als gelbe Balken über der Aufnahme; mit **‹ Bewegung** und **Bewegung ›** springt die Wiedergabe zur vorherigen oder nächsten. Im Kamerastatus zeigt **Wartet auf Bewegung**, dass gerade nichts gespeichert wird, und eine gelbe Marke **Bewegung**, dass die Kamera gerade Bewegung meldet. Bei Kameras mit ONVIF-Adresse werden Bewegungen auch bei Daueraufnahme auf der Zeitleiste angezeigt.
 
+Little Sister holt die Meldungen bevorzugt selbst bei der Kamera ab (PullPoint). Kann eine Kamera das nicht (Fehler „ActionNotSupported“), schickt sie ihre Meldungen per HTTP an Little Sister (WS-BaseNotification) an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server erreichen: Der HTTP-Port (8080, in der Entwicklung 5080) darf von der Firewall nicht gesperrt sein, und Little Sister darf nicht nur auf `localhost` lauschen. Die Serveradresse ermittelt Little Sister selbst. Hinter NAT oder in Docker mit Bridge-Netz lässt sie sich mit `LittleSister__Events__CallbackUrl` vorgeben.
+
 ### Ablage der Aufnahmen
 
 ```
@@ -137,6 +139,7 @@ Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstri
 | `LittleSister__Live__ApiPort` | `1984` | go2rtc-API, nur auf 127.0.0.1 |
 | `LittleSister__Live__WebRtcPort` | `8555` | WebRTC-Port (TCP und UDP) |
 | `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse, z. B. `192.168.1.10:8555` bei Docker-Bridge oder NAT |
+| `LittleSister__Events__CallbackUrl` | automatisch | Adresse, unter der Kameras ohne PullPoint Little Sister erreichen, z. B. `http://192.168.1.10:8080` |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
 
 ## Alternativ: Docker (z. B. Unraid)
@@ -231,7 +234,7 @@ cd web && npm install && npm run dev
 
 | Zeile | Wirkung |
 | --- | --- |
-| `dotnet run --project src/LittleSister.Api` | startet die API auf http://localhost:5080 (Daten in `src/LittleSister.Api/data`) |
+| `dotnet run --project src/LittleSister.Api` | startet die API auf Port 5080, auch aus dem LAN erreichbar, damit Kameras Ereignisse schicken können (Daten in `src/LittleSister.Api/data`) |
 | `cd web && npm install && npm run dev` | installiert die Frontend-Pakete und startet die Oberfläche auf http://localhost:5173; `/api` wird an die API weitergeleitet |
 
 ### Einrichtung in Rider (Linux, fish)

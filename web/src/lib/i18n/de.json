@@ -116,7 +116,10 @@
 		"outOfRange": "Der Wert liegt außerhalb des erlaubten Bereichs.",
 		"invalidRecordingMode": "Unbekannte Aufnahmeart.",
 		"onvifNoEvents": "Little Sister findet bei dieser Kamera keinen ONVIF-Ereignisdienst. Die Antwort der Kamera steht im Protokoll.",
-		"eventsFailed": "Die Verbindung zu den Ereignissen der Kamera ist fehlgeschlagen."
+		"eventsFailed": "Die Verbindung zu den Ereignissen der Kamera ist fehlgeschlagen.",
+		"onvifNoEventSubscription": "Die Kamera lehnt beide Arten des Ereignis-Abonnements ab (PullPoint und Subscribe). Details stehen im Protokoll.",
+		"eventsCallbackLocalhost": "Die Kamera schickt ihre Meldungen selbst, erreicht Little Sister aber nicht: Little Sister lauscht nur auf localhost. Bitte auf 0.0.0.0 lauschen lassen oder LittleSister__Events__CallbackUrl setzen.",
+		"eventsCallbackUnavailable": "Little Sister kennt keine Adresse, unter der die Kamera ihre Meldungen zustellen kann. Bitte LittleSister__Events__CallbackUrl setzen."
 	},
 	"status": {
 		"Idle": "Aus",
