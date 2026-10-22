@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Erkennungsbereiche ausmalen: Raster über dem Standbild, Felder per Klicken/Ziehen an- und ausschalten
-	import { untrack } from 'svelte';
-	import { t } from '#lib/i18n/index.svelte.js';
+	import { onMount } from 'svelte';
+	import { ApiError, streamSnapshot, type StreamTarget } from '#lib/api.js';
+	import { t, tError } from '#lib/i18n/index.svelte.js';
 
 	const COLUMNS = 16;
 	const ROWS = 12;
@@ -9,12 +10,12 @@
 
 	let {
 		value = $bindable(),
-		cameraId
+		source
 	}: {
 		/** 192 Zeichen '0'/'1', zeilenweise; null = ganzes Bild */
 		value: string | null;
-		/** Ohne gespeicherte Kamera gibt es noch kein Standbild */
-		cameraId?: string;
+		/** Liefert die aktuell eingetragene Stream-Adresse; das Bild kommt direkt vom Stream, gespeichert oder nicht */
+		source: () => StreamTarget;
 	} = $props();
 
 	// Arbeitskopie als Liste; null bedeutet "alles aktiv"
@@ -23,11 +24,38 @@
 	);
 	let painting: boolean | null = null;
 	let grid: HTMLDivElement;
-	// Standbild einmal beim Öffnen laden
-	const snapshot = untrack(() =>
-		cameraId ? `/api/live/${cameraId}/snapshot?t=${Date.now()}` : null
-	);
-	let snapshotFailed = $state(false);
+	// Standbild: beim Öffnen und auf Knopfdruck laden (z. B. nach Ändern der Adresse)
+	let snapshot = $state<string | null>(null);
+	let loading = $state(false);
+	let snapshotError = $state<string | null>(null);
+
+	async function loadSnapshot() {
+		const target = source();
+		snapshotError = null;
+		if (!target.url.trim()) {
+			snapshotError = 'needUrl';
+			return;
+		}
+		loading = true;
+		try {
+			const image = URL.createObjectURL(
+				await streamSnapshot({ ...target, url: target.url.trim() })
+			);
+			if (snapshot) URL.revokeObjectURL(snapshot);
+			snapshot = image;
+		} catch (e) {
+			snapshotError = e instanceof ApiError ? (e.field('url') ?? e.code) : 'network';
+		} finally {
+			loading = false;
+		}
+	}
+
+	onMount(() => {
+		loadSnapshot();
+		return () => {
+			if (snapshot) URL.revokeObjectURL(snapshot);
+		};
+	});
 
 	const activeCount = $derived(cells.filter(Boolean).length);
 
@@ -81,8 +109,8 @@
 		role="application"
 		aria-label={t('cameras.zones')}
 	>
-		{#if snapshot && !snapshotFailed}
-			<img src={snapshot} alt="" draggable="false" onerror={() => (snapshotFailed = true)} />
+		{#if snapshot}
+			<img src={snapshot} alt="" draggable="false" />
 		{/if}
 		<div class="cells">
 			{#each cells as active, i (i)}
@@ -90,8 +118,12 @@
 			{/each}
 		</div>
 	</div>
-	{#if !snapshot || snapshotFailed}
-		<p class="muted small">{t(snapshot ? 'cameras.zonesNoImage' : 'cameras.zonesSaveFirst')}</p>
+	{#if loading}
+		<p class="muted small">{t('cameras.zonesLoading')}</p>
+	{:else if snapshotError === 'needUrl'}
+		<p class="muted small">{t('cameras.zonesNeedUrl')}</p>
+	{:else if snapshotError}
+		<p class="muted small">{t('cameras.zonesNoImage', { reason: tError(snapshotError) })}</p>
 	{/if}
 	<div class="actions">
 		<button type="button" class="secondary" onclick={() => setAll(() => true)}>
@@ -99,6 +131,9 @@
 		</button>
 		<button type="button" class="secondary" onclick={() => setAll((a) => !a)}>
 			{t('cameras.zonesInvert')}
+		</button>
+		<button type="button" class="secondary" onclick={loadSnapshot} disabled={loading}>
+			{t('cameras.zonesReload')}
 		</button>
 		<span class="muted small">
 			{t('cameras.zonesCount', { active: activeCount, total: CELLS })}

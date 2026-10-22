@@ -24,6 +24,7 @@ internal static class CameraEndpoints
         group.MapPut("/{id:guid}", Update).RequireAuthorization(Policies.Admin);
         group.MapDelete("/{id:guid}", Delete).RequireAuthorization(Policies.Admin);
         group.MapPost("/test-stream", TestStream).RequireAuthorization(Policies.Admin);
+        group.MapPost("/snapshot", StreamSnapshot).RequireAuthorization(Policies.Admin);
     }
 
     /// <summary>Eingaben beim Anlegen/Ändern. Passwort null beim Ändern = unverändert lassen.</summary>
@@ -179,9 +180,36 @@ internal static class CameraEndpoints
     private static async Task<IResult> TestStream(
         TestStreamRequest request, LittleSisterDbContext db, CameraCredentialProtector credentials, StreamProbe probe, CancellationToken ct)
     {
+        var target = await ResolveStreamAsync(request, db, credentials, ct);
+        if (target is null)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["url"] = ["rtspUrlRequired"] });
+        return Results.Ok(await probe.ProbeAsync(target.Value.Url, target.Value.Username, target.Value.Password, ct));
+    }
+
+    /// <summary>Standbild direkt vom eingegebenen Stream, auch für noch nicht gespeicherte Kameras.</summary>
+    private static async Task<IResult> StreamSnapshot(
+        TestStreamRequest request, LittleSisterDbContext db, CameraCredentialProtector credentials, StreamProbe probe, CancellationToken ct)
+    {
+        var target = await ResolveStreamAsync(request, db, credentials, ct);
+        if (target is null)
+            return Results.ValidationProblem(new Dictionary<string, string[]> { ["url"] = ["rtspUrlRequired"] });
+
+        var (jpeg, error) = await probe.SnapshotAsync(target.Value.Url, target.Value.Username, target.Value.Password, ct);
+        return jpeg is null
+            ? Results.Problem(statusCode: StatusCodes.Status422UnprocessableEntity, title: error)
+            : Results.File(jpeg, "image/jpeg");
+    }
+
+    /// <summary>
+    /// Adresse und Zugangsdaten für eine Stream-Prüfung; Zugangsdaten in der URL werden abgetrennt.
+    /// Ohne neues Passwort gilt das gespeicherte der Kamera. null = keine gültige RTSP-Adresse.
+    /// </summary>
+    private static async Task<(string Url, string? Username, string? Password)?> ResolveStreamAsync(
+        TestStreamRequest request, LittleSisterDbContext db, CameraCredentialProtector credentials, CancellationToken ct)
+    {
         var url = StreamUrl.WithoutCredentials(request.Url?.Trim() ?? "", out var urlUser, out var urlPassword);
         if (!CameraValidator.IsRtspUrl(url))
-            return Results.ValidationProblem(new Dictionary<string, string[]> { ["url"] = ["rtspUrlRequired"] });
+            return null;
 
         var username = request.Username ?? urlUser;
         var password = request.Password ?? urlPassword;
@@ -190,8 +218,7 @@ internal static class CameraEndpoints
             var camera = await db.Cameras.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cameraId, ct);
             password = credentials.Unprotect(camera?.ProtectedPassword);
         }
-
-        return Results.Ok(await probe.ProbeAsync(url, username, password, ct));
+        return (url, username, password);
     }
 
     /// <summary>Validiert und trennt Zugangsdaten ab, falls sie direkt in der URL stehen.</summary>

@@ -236,4 +236,23 @@ public class CameraTests
         var forbidden = await viewer.PutAsJsonAsync("/api/storage", new { minFreeGb = 10, recordingsPath = "/tmp" });
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
     }
+
+    [Fact]
+    public async Task Standbild_NurFuerAdminUndNurMitRtspAdresse()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+
+        var invalid = await admin.PostAsJsonAsync("/api/cameras/snapshot", new { url = "http://kamera/bild.jpg" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+
+        // Im Test fehlt ffmpeg absichtlich: Fehlercode statt Bild
+        var missing = await admin.PostAsJsonAsync("/api/cameras/snapshot", new { url = "rtsp://192.0.2.1/stream" });
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, missing.StatusCode);
+        Assert.Contains("ffmpegMissing", await missing.Content.ReadAsStringAsync());
+
+        var viewer = await factory.CreateUserClientAsync(admin, "betrachter", "Viewer");
+        var forbidden = await viewer.PostAsJsonAsync("/api/cameras/snapshot", new { url = "rtsp://192.0.2.1/stream" });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+    }
 }
