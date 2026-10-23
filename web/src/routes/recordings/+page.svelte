@@ -16,6 +16,7 @@
 		mediaLength
 	} from '#lib/playback/timeline.js';
 	import {
+		eventTargets,
 		jumpTolerance,
 		leaderAt,
 		maxCameras,
@@ -43,7 +44,13 @@
 			}))
 		)
 	);
-	const eventStarts = $derived(events.flat().map((e) => e.start));
+	// Sprungziele für „‹ Bewegung ›“: wo die Wiedergabe nach dem Sprung wirklich steht
+	const eventStarts = $derived(
+		eventTargets(
+			maps,
+			events.flat().map((e) => e.start)
+		)
+	);
 	const lanes = $derived(
 		cams.map((c, i) => ({
 			label: c.name,
