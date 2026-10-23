@@ -215,7 +215,9 @@
 				aria-label={t('playback.zoomIn')}>+</button
 			>
 		</div>
-		<span class="muted help">{t('playback.timelineHelp')}</span>
+		<!-- Hinweis passend zur Bedienung: Maus oder Touch -->
+		<span class="muted help mouse">{t('playback.timelineHelp')}</span>
+		<span class="muted help touch">{t('playback.timelineHelpTouch')}</span>
 	</div>
 
 	<div class="track-wrap">
@@ -356,6 +358,29 @@
 	.help {
 		font-size: 0.75rem;
 		text-align: right;
+	}
+	.help.touch {
+		display: none;
+	}
+	/* Touch: kein Mausrad, daher eigener Hinweis */
+	@media (pointer: coarse) {
+		.help.mouse {
+			display: none;
+		}
+		.help.touch {
+			display: inline;
+		}
+	}
+	/* Schmale Bildschirme: Hinweis unter die Zoom-Knöpfe, über die Zeitleiste */
+	@media (max-width: 640px) {
+		.toolbar {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.35rem;
+		}
+		.help {
+			text-align: left;
+		}
 	}
 	.track {
 		position: relative;
