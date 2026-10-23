@@ -89,13 +89,24 @@
 		}
 	}
 
-	/** Für das Standbild der Erkennungsbereiche: der Substream genügt und lädt schneller. */
-	function snapshotSource(): StreamTarget {
+	/**
+	 * Für das Standbild der Erkennungsbereiche: der Substream genügt und lädt schneller.
+	 * Sind Adressen und Zugangsdaten unverändert gespeichert, kennt go2rtc die Kamera schon.
+	 */
+	function snapshotSource(): { target: StreamTarget; liveCameraId: string | null } {
+		const unchanged =
+			form.mainStreamUrl.trim() === start.mainStreamUrl &&
+			form.subStreamUrl.trim() === (start.subStreamUrl ?? '') &&
+			form.username.trim() === (start.username ?? '') &&
+			!form.password;
 		return {
-			url: form.subStreamUrl.trim() || form.mainStreamUrl.trim(),
-			username: form.username || null,
-			password: form.password || null,
-			cameraId: cameraId ?? null
+			target: {
+				url: form.subStreamUrl.trim() || form.mainStreamUrl.trim(),
+				username: form.username || null,
+				password: form.password || null,
+				cameraId: cameraId ?? null
+			},
+			liveCameraId: cameraId && unchanged ? cameraId : null
 		};
 	}
 

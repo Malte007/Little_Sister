@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Erkennungsbereiche ausmalen: Raster über dem Standbild, Felder per Klicken/Ziehen an- und ausschalten
 	import { onMount } from 'svelte';
-	import { ApiError, streamSnapshot, type StreamTarget } from '#lib/api.js';
+	import { ApiError, liveSnapshot, streamSnapshot, type StreamTarget } from '#lib/api.js';
 	import { t, tError } from '#lib/i18n/index.svelte.js';
 
 	const COLUMNS = 16;
@@ -14,8 +14,11 @@
 	}: {
 		/** 192 Zeichen '0'/'1', zeilenweise; null = ganzes Bild */
 		value: string | null;
-		/** Liefert die aktuell eingetragene Stream-Adresse; das Bild kommt direkt vom Stream, gespeichert oder nicht */
-		source: () => StreamTarget;
+		/**
+		 * Liefert die aktuell eingetragene Stream-Adresse. liveCameraId ist gesetzt, wenn die Kamera gespeichert ist
+		 * und die Adresse unverändert: dann kommt das Bild zuerst von go2rtc, sonst direkt vom Stream.
+		 */
+		source: () => { target: StreamTarget; liveCameraId: string | null };
 	} = $props();
 
 	// Arbeitskopie als Liste; null bedeutet "alles aktiv"
@@ -30,7 +33,7 @@
 	let snapshotError = $state<string | null>(null);
 
 	async function loadSnapshot() {
-		const target = source();
+		const { target, liveCameraId } = source();
 		snapshotError = null;
 		if (!target.url.trim()) {
 			snapshotError = 'needUrl';
@@ -38,9 +41,7 @@
 		}
 		loading = true;
 		try {
-			const image = URL.createObjectURL(
-				await streamSnapshot({ ...target, url: target.url.trim() })
-			);
+			const image = URL.createObjectURL(await fetchImage(target, liveCameraId));
 			if (snapshot) URL.revokeObjectURL(snapshot);
 			snapshot = image;
 		} catch (e) {
@@ -48,6 +49,18 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	/** Bekannte Kamera: erst go2rtc; liefert das kein Bild (z. B. Live-Dienst aus), direkt vom Stream. */
+	async function fetchImage(target: StreamTarget, liveCameraId: string | null): Promise<Blob> {
+		if (liveCameraId) {
+			try {
+				return await liveSnapshot(liveCameraId);
+			} catch {
+				// Rückfall unten
+			}
+		}
+		return streamSnapshot({ ...target, url: target.url.trim() });
 	}
 
 	onMount(() => {

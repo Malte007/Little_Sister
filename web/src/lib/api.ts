@@ -60,6 +60,13 @@ export interface StreamTarget {
 	cameraId: string | null;
 }
 
+/** Standbild einer gespeicherten Kamera über go2rtc; schnell, weil die Verbindung meist schon offen ist. */
+export async function liveSnapshot(cameraId: string): Promise<Blob> {
+	const response = await fetch(`/api/live/${cameraId}/snapshot`, { credentials: 'same-origin' });
+	if (!response.ok) throw await toApiError(response);
+	return response.blob();
+}
+
 /** Holt ein Standbild direkt vom Stream (auch für noch nicht gespeicherte Kameras). */
 export async function streamSnapshot(target: StreamTarget): Promise<Blob> {
 	const response = await fetch('/api/cameras/snapshot', {
