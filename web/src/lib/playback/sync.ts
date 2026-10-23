@@ -22,6 +22,16 @@ export function nextRecording(maps: MapEntry[][], wall: number, skip = -1): numb
 }
 
 /**
+ * Sprungziele der Bewegungsereignisse: dort, wo die Wiedergabe nach dem Sprung tatsächlich steht.
+ * Ohne Vorlauf beginnt die Aufnahme erst Sekunden nach dem Ereignis; ein Sprung landet dann am Aufnahmebeginn.
+ * Mit den Ereignisstarts selbst fände "vorheriges Ereignis" wieder dasselbe und käme nie weiter zurück.
+ */
+export function eventTargets(maps: MapEntry[][], starts: number[]): number[] {
+	const targets = starts.map((s) => nextRecording(maps, s)).filter((t): t is number => t !== null);
+	return [...new Set(targets)].sort((x, y) => x - y);
+}
+
+/**
  * Die führende Kamera ist von prev nach next gesprungen, weil ihre Aufnahme eine Lücke hat
  * (ihr Video reiht die Aufnahmen lückenlos aneinander). Haben andere Kameras in der Lücke
  * Aufnahmen, geht es dort weiter, sonst bei next.

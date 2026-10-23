@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildMap } from './timeline';
-import { leaderAt, mediaAt, nextRecording, settleJump, thumbnailAt } from './sync';
+import { buildMap, eventNeighbor } from './timeline';
+import { eventTargets, leaderAt, mediaAt, nextRecording, settleJump, thumbnailAt } from './sync';
 
 const t0 = Date.parse('2026-10-21T10:00:00Z');
 const min = 60_000;
@@ -49,5 +49,23 @@ describe('Synchronlauf', () => {
 			count: 6
 		});
 		expect(thumbnailAt(a, t0 + 5 * min, 10)).toBeNull();
+	});
+
+	it('springt bei Aufnahme ohne Vorlauf von Ereignis zu Ereignis zurück', () => {
+		// Bewegung um 10 s und 50 s, die Aufnahme beginnt jeweils erst 4 s später
+		const sec = 1000;
+		const at = (id: number, from: number, to: number) => ({
+			id,
+			startUtc: new Date(t0 + from * sec).toISOString(),
+			endUtc: new Date(t0 + to * sec).toISOString(),
+			thumbnails: 0
+		});
+		const late = [buildMap([at(1, 14, 40), at(2, 54, 80)])];
+		const targets = eventTargets(late, [t0 + 10 * sec, t0 + 50 * sec]);
+		expect(targets).toEqual([t0 + 14 * sec, t0 + 54 * sec]);
+		// Nach dem Sprung steht die Wiedergabe am Aufnahmebeginn; zurück führt zum Ereignis davor
+		expect(eventNeighbor(targets, t0 + 54 * sec, -1)).toBe(t0 + 14 * sec);
+		expect(eventNeighbor(targets, t0 + 14 * sec, -1)).toBeNull();
+		expect(eventNeighbor(targets, t0 + 14 * sec, 1)).toBe(t0 + 54 * sec);
 	});
 });
