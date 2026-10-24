@@ -277,6 +277,7 @@
 		"exportTooLong": "At most 24 hours at once.",
 		"zoom4": "3 minutes",
 		"timelineHelp": "Click to jump · drag to mark for export · wheel zooms · drag the scale to pan",
+		"timelineHelpTouch": "Tap to jump · drag to mark for export · drag the scale to pan",
 		"noRecordingNow": "No recording at this time",
 		"addCamera": "Add camera",
 		"removeCamera": "Remove camera",

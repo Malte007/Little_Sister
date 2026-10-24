@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buildMap, eventNeighbor } from './timeline';
-import { eventTargets, leaderAt, mediaAt, nextRecording, settleJump, thumbnailAt } from './sync';
+import { buildMap, eventNeighbor, toWall } from './timeline';
+import {
+	eventTargets,
+	followTargets,
+	leaderAt,
+	mediaAt,
+	nextRecording,
+	settleJump,
+	thumbnailAt
+} from './sync';
 
 const t0 = Date.parse('2026-10-21T10:00:00Z');
 const min = 60_000;
@@ -67,5 +75,47 @@ describe('Synchronlauf', () => {
 		expect(eventNeighbor(targets, t0 + 54 * sec, -1)).toBe(t0 + 14 * sec);
 		expect(eventNeighbor(targets, t0 + 14 * sec, -1)).toBeNull();
 		expect(eventNeighbor(targets, t0 + 14 * sec, 1)).toBe(t0 + 54 * sec);
+	});
+
+	it('überlappende Segmente: Uhrzeit ist nicht eindeutig, die führende Kamera darf nicht zurückgerechnet werden', () => {
+		// Zweites Segment beginnt laut Dateiname 2 s vor dem Ende des ersten
+		const sec = 1000;
+		const at = (id: number, from: number, to: number) => ({
+			id,
+			startUtc: new Date(t0 + from * sec).toISOString(),
+			endUtc: new Date(t0 + to * sec).toISOString(),
+			thumbnails: 0
+		});
+		const map = buildMap([at(1, 0, 60), at(2, 58, 118)]);
+		// Videostelle 61 s (im zweiten Segment) entspricht 59 s Uhrzeit ...
+		const wall = toWall(map, 61)!;
+		expect(wall).toBe(t0 + 59 * sec);
+		// ... und 59 s Uhrzeit zurückgerechnet ergibt eine andere Videostelle: Grund der früheren Schleife
+		expect(mediaAt(map, wall)).not.toBe(61);
+	});
+
+	it('läuft über überlappende Segmente hinweg weiter statt in einer Schleife', () => {
+		// Wie auf Maltes Server: das erste Segment nach dem Start von ffmpeg ragt 2,9 s in das nächste
+		const sec = 1000;
+		const at = (id: number, from: number, to: number) => ({
+			id,
+			startUtc: new Date(t0 + from * sec).toISOString(),
+			endUtc: new Date(t0 + to * sec).toISOString(),
+			thumbnails: 0
+		});
+		const one = [buildMap([at(1, -10, 0), at(2, 0, 10.9), at(3, 8, 18), at(4, 18, 28)])];
+		// Abspielen in Schritten von 0,25 s wie die timeupdate-Meldungen, Abweichung > 1 s führt zum Sprung
+		let media = 16;
+		let leader = 0;
+		for (let step = 0; step < 80; step++) {
+			media += 0.25;
+			const wall = toWall(one[0], media)!;
+			const next = leaderAt(one, wall);
+			const target = followTargets(one, wall, leader, next, false)[0];
+			leader = next;
+			if (target != null && Math.abs(media - target) > 1) media = target;
+		}
+		// 20 s Abspielzeit: ohne Schleife bei 36 s Videostelle
+		expect(media).toBeCloseTo(36, 5);
 	});
 });
