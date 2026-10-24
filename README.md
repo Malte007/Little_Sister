@@ -53,7 +53,21 @@ cd little_sister
 | `cd little_sister` | wechselt in den Projektordner |
 | `./scripts/install-ubuntu.sh` | baut alles, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
 
-Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`).
+Bei der Erstinstallation fragt das Skript nach dem Port für Oberfläche und API (Enter = 8080) und prüft, ob er frei ist. Ohne Rückfrage geht es mit `env HTTP_PORT=9000 ./scripts/install-ubuntu.sh`. Bei Updates wird nicht erneut gefragt, der eingestellte Port bleibt.
+
+Port später ändern:
+
+```fish
+sudo nano /etc/little-sister/little-sister.env
+sudo systemctl restart little-sister
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `sudo nano …` | öffnet die Einstellungen; dort `ASPNETCORE_HTTP_PORTS=8080` auf den neuen Port setzen |
+| `sudo systemctl restart little-sister` | startet den Dienst mit dem neuen Port neu |
+
+Danach `http://<server>:<port>` öffnen (Standard 8080); der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`).
 
 | Was | Wo |
 | --- | --- |
@@ -76,7 +90,7 @@ git pull
 | `git pull` | holt den neuesten Stand |
 | `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu; Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert |
 
-Ist eine Firewall (ufw) aktiv, müssen die Ports 8080 (Oberfläche) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
+Ist eine Firewall (ufw) aktiv, müssen der Port für die Oberfläche (Standard 8080) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
 
 ## Betrieb
 

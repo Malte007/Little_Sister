@@ -8,6 +8,7 @@
 #   DATA_DIR        Datenbank, Schlüssel         (Standard: /var/lib/little-sister)
 #   RECORDINGS_DIR  Vorschlag für Aufnahmen      (Standard: /srv/little-sister/recordings)
 #   GO2RTC_VERSION  go2rtc für die Live-Ansicht  (Standard: 1.9.14)
+#   HTTP_PORT       Port für Oberfläche und API  (nur Erstinstallation; sonst wird gefragt, Standard 8080)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,6 +27,41 @@ ask() {
   ( : </dev/tty ) 2>/dev/null || return 1
   read -rp "$1 [J/n] " answer </dev/tty || return 1
   [[ -z "$answer" || "$answer" =~ ^[JjYy] ]]
+}
+
+# Lauscht schon ein Programm auf diesem TCP-Port? (ss aus iproute2, sonst Verbindungsversuch auf localhost)
+port_in_use() {
+  if command -v ss >/dev/null; then
+    ss -Htln "sport = :$1" | grep -q .
+  else
+    (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+  fi
+}
+
+# Port für Oberfläche und API: aus HTTP_PORT oder per Frage, Enter = 8080. Ohne Terminal gilt der Standard.
+choose_port() {
+  local port="${HTTP_PORT:-}"
+  while true; do
+    if [[ -z "$port" ]]; then
+      if ( : </dev/tty ) 2>/dev/null; then
+        read -rp "Port für Little Sister (Oberfläche und API) [8080]: " port </dev/tty || port=""
+      fi
+      port="${port:-8080}"
+    fi
+    if [[ ! "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+      [[ -n "${HTTP_PORT:-}" ]] && fail "HTTP_PORT=$HTTP_PORT ist kein gültiger Port (1–65535)"
+      echo "Ungültiger Port: $port (erlaubt 1–65535)" >&2
+    elif port_in_use "$port"; then
+      echo "Port $port ist bereits belegt:" >&2
+      command -v ss >/dev/null && { sudo ss -Htlnp "sport = :$port" >&2 || true; }
+      [[ -n "${HTTP_PORT:-}" ]] && fail "Bitte einen freien Port wählen"
+      ( : </dev/tty ) 2>/dev/null || fail "Port $port ist belegt; mit HTTP_PORT=<port> einen anderen wählen"
+    else
+      CHOSEN_PORT="$port"
+      return
+    fi
+    port=""
+  done
 }
 
 has_dotnet10() { command -v dotnet >/dev/null && dotnet --list-sdks | grep -q '^10\.'; }
@@ -73,6 +109,13 @@ has_dotnet10 || fail ".NET 10 SDK fehlt (sudo apt install dotnet-sdk-10.0)"
 command -v ffmpeg >/dev/null || fail "ffmpeg fehlt (sudo apt install ffmpeg)"
 node_ok || fail "Node.js fehlt oder ist zu alt ($(node --version 2>/dev/null || echo 'nicht gefunden')), benötigt wird mindestens 22.12"
 
+# Port nur bei der Erstinstallation festlegen; bei Updates bleibt der eingestellte (siehe ENV_FILE)
+CHOSEN_PORT=""
+if [[ ! -f "$ENV_FILE" ]]; then
+  choose_port
+  echo "Little Sister wird auf Port $CHOSEN_PORT eingerichtet"
+fi
+
 # 2) go2rtc installieren bzw. auf die gewünschte Version bringen
 if ! go2rtc -version 2>/dev/null | grep -q "$GO2RTC_VERSION"; then
   case "$(uname -m)" in aarch64|arm64) ARCH=arm64 ;; *) ARCH=amd64 ;; esac
@@ -109,7 +152,7 @@ sudo chmod -R a+rX "$INSTALL_DIR/app"
 if [[ ! -f "$ENV_FILE" ]]; then
   sudo tee "$ENV_FILE" >/dev/null <<EOF
 # Einstellungen für Little Sister; nach Änderungen: sudo systemctl restart little-sister
-ASPNETCORE_HTTP_PORTS=8080
+ASPNETCORE_HTTP_PORTS=$CHOSEN_PORT
 LittleSister__DataPath=$DATA_DIR
 LittleSister__DefaultRecordingsPath=$RECORDINGS_DIR
 EOF
