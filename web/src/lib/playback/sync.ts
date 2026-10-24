@@ -43,6 +43,23 @@ export function settleJump(maps: MapEntry[][], leader: number, prev: number, nex
 	return other !== null && other < next ? other : next;
 }
 
+/**
+ * Zielstellen beim Angleichen: Abspielposition je Kamera, null = pausieren (Lücke), undefined = in Ruhe lassen.
+ * Die führende Kamera gibt die Zeit vor und wird nicht an sich selbst angeglichen: Überlappen sich zwei
+ * Segmente auf der Uhr (Dateiname auf Sekunden gerundet, Kamerauhr weicht ab, Pufferung beim Verbinden),
+ * gehören zu einer Uhrzeit zwei Videostellen, und das Zurückrechnen würde sie in eine Endlosschleife werfen.
+ */
+export function followTargets(
+	maps: MapEntry[][],
+	wall: number,
+	previousLeader: number,
+	leader: number,
+	force: boolean
+): (number | null | undefined)[] {
+	const keepLeader = !force && leader === previousLeader;
+	return maps.map((m, i) => (keepLeader && i === leader ? undefined : mediaAt(m, wall)));
+}
+
 /** Abspielposition einer Kamera zur Uhrzeit; null in einer Lücke (die Kamera pausiert dann). */
 export function mediaAt(map: MapEntry[], wall: number): number | null {
 	const i = segmentAt(map, wall);

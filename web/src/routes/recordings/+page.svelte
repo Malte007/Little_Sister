@@ -17,10 +17,10 @@
 	} from '#lib/playback/timeline.js';
 	import {
 		eventTargets,
+		followTargets,
 		jumpTolerance,
 		leaderAt,
 		maxCameras,
-		mediaAt,
 		nextRecording,
 		settleJump,
 		thumbnailAt
@@ -122,9 +122,12 @@
 			next = leaderAt(maps, later);
 			force = true;
 		}
+		const targets = followTargets(maps, position, leader, next, force);
 		leader = next;
 		const tolerance = force ? 0.3 : Math.max(1, rate * 0.5);
-		cams.forEach((c, i) => players[c.id]?.follow(mediaAt(maps[i], position!), tolerance));
+		cams.forEach((c, i) => {
+			if (targets[i] !== undefined) players[c.id]?.follow(targets[i], tolerance);
+		});
 	}
 
 	function onTime(id: string, media: number) {
