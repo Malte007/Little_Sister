@@ -59,6 +59,9 @@ public static class DependencyInjection
         services.AddSingleton<IFreeSpaceProvider, DriveFreeSpaceProvider>();
         services.AddSingleton<RetentionService>();
         services.AddHostedService(sp => sp.GetRequiredService<RetentionService>());
+        services.AddSingleton<ISegmentDurationProbe, FfprobeDurationProbe>();
+        services.AddSingleton<SegmentImporter>();
+        services.AddHostedService(sp => sp.GetRequiredService<SegmentImporter>());
 
         // Bewegung: aus dem Bild oder per ONVIF-Ereignis erkennen und als Ereignisse speichern
         services.AddSingleton<MotionSignals>();

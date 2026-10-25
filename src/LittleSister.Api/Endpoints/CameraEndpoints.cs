@@ -8,6 +8,7 @@ using LittleSister.Infrastructure.Data;
 using LittleSister.Infrastructure.Onvif;
 using LittleSister.Infrastructure.Recording;
 using LittleSister.Infrastructure.Security;
+using LittleSister.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace LittleSister.Api.Endpoints;
@@ -23,6 +24,7 @@ internal static class CameraEndpoints
         group.MapPost("", Create).RequireAuthorization(Policies.Admin);
         group.MapPut("/{id:guid}", Update).RequireAuthorization(Policies.Admin);
         group.MapDelete("/{id:guid}", Delete).RequireAuthorization(Policies.Admin);
+        group.MapDelete("/{id:guid}/recordings", DeleteRecordings).RequireAuthorization(Policies.Admin);
         group.MapPost("/test-stream", TestStream).RequireAuthorization(Policies.Admin);
         group.MapPost("/snapshot", StreamSnapshot).RequireAuthorization(Policies.Admin);
     }
@@ -174,6 +176,35 @@ internal static class CameraEndpoints
             });
         }
         return Results.NoContent();
+    }
+
+    /// <param name="Deleted">Gelöschte Segmente.</param>
+    /// <param name="Skipped">Segmente in nicht erreichbaren Aufnahmeordnern; sie bleiben, bis der Ordner wieder da ist.</param>
+    internal sealed record DeleteRecordingsResult(int Deleted, int Skipped);
+
+    /// <summary>Löscht alle Aufnahmen und abgeschlossenen Ereignisse einer Kamera; die Kamera selbst bleibt und nimmt weiter auf.</summary>
+    private static async Task<IResult> DeleteRecordings(Guid id, LittleSisterDbContext db, ILoggerFactory loggers, CancellationToken ct)
+    {
+        var logger = loggers.CreateLogger(typeof(CameraEndpoints));
+        if (!await db.Cameras.AnyAsync(c => c.Id == id, ct))
+            return Results.NotFound();
+
+        var segments = await db.Segments.Where(s => s.CameraId == id).ToListAsync(ct);
+        // Ohne erreichbaren Ordner würden nur Datenbankeinträge verschwinden und die Dateien beim nächsten Start wieder eingelesen
+        var available = new Dictionary<string, bool>();
+        foreach (var root in segments.Select(s => s.StorageRoot).Distinct())
+            available[root] = await StorageMarker.IsAvailableAsync(db, root, ct);
+        var delete = segments.Where(s => available[s.StorageRoot]).ToList();
+
+        // Erst die Einträge, dann die Dateien: so zeigt die Oberfläche nie Aufnahmen ohne Datei
+        db.Segments.RemoveRange(delete);
+        await db.SaveChangesAsync(ct);
+        await db.Events.Where(e => e.CameraId == id && e.EndUtc != null).ExecuteDeleteAsync(ct);
+        foreach (var segment in delete)
+            SegmentFileCleanup.Delete(segment, logger);
+
+        logger.LogInformation("Alle Aufnahmen der Kamera {Camera} gelöscht: {Count} Segment(e)", id, delete.Count);
+        return Results.Ok(new DeleteRecordingsResult(delete.Count, segments.Count - delete.Count));
     }
 
     /// <summary>Prüft einen Stream per ffprobe; mit CameraId wird das gespeicherte Passwort verwendet.</summary>

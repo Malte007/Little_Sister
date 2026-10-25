@@ -142,30 +142,11 @@ public sealed class RetentionService(
             return 0;
 
         foreach (var segment in segments)
-        {
-            try
-            {
-                // Jedes Segment liegt in dem Ordner, der bei seiner Aufnahme galt
-                File.Delete(segment.FullPath);
-                File.Delete(SegmentThumbnails.PathOf(segment));
-                DeleteEmptyDirectory(Path.GetDirectoryName(segment.FullPath)!);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                logger.LogWarning(ex, "Datei {Path} konnte nicht gelöscht werden", segment.FullPath);
-            }
-        }
+            SegmentFileCleanup.Delete(segment, logger);
 
         db.Segments.RemoveRange(segments);
         await db.SaveChangesAsync(ct);
         return segments.Count;
-    }
-
-    /// <summary>Entfernt leere Tagesordner, damit sich keine Verzeichnisleichen ansammeln.</summary>
-    private static void DeleteEmptyDirectory(string directory)
-    {
-        if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
-            Directory.Delete(directory);
     }
 }
 
