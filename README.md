@@ -140,6 +140,10 @@ recordings/.little-sister                         Kennung des Aufnahmeordners, n
 
 Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment. Zur versteckten Datei `.little-sister` siehe den nächsten Abschnitt.
 
+Beim Start liest Little Sister im Hintergrund Segmentdateien ein, die nach diesem Schema in einem Kameraordner liegen, aber in der Datenbank fehlen (z. B. nach einer wiederhergestellten Datenbank). Die Länge ermittelt `ffprobe`; Vorschaubilder entstehen danach, sofern sie eingeschaltet sind. Ordner gelöschter Kameras, `.incoming` und `.buffer` bleiben außen vor. Was älter als die maximale Aufbewahrung ist oder das Kontingent übersteigt, entfernt der Ringspeicher danach wie gewohnt.
+
+Alle Aufnahmen einer Kamera löscht ein Admin unter **Kameras → Kamera bearbeiten → Aufnahmen → Alle Aufnahmen löschen**; zur Bestätigung wird der Kameraname eingetippt. Gelöscht werden Segmente, Vorschaubilder und Bewegungsereignisse, die Kamera selbst bleibt und nimmt weiter auf.
+
 ### Aufnahmeordner auf Netzfreigabe oder eigener Platte
 
 > **Wichtig:** Im Aufnahmeordner liegt die versteckte Datei `.little-sister` (wegen des Punkts am Anfang zeigt `ls` sie nur mit `ls -a`). Sie kennzeichnet den Ordner als den eingerichteten Aufnahmeordner. **Nicht löschen.**
