@@ -142,4 +142,39 @@ public class RetentionTests
         var remaining = await check.ServiceProvider.GetRequiredService<LittleSisterDbContext>().Events.OrderBy(e => e.StartUtc).ToListAsync();
         Assert.Equal([oldest.AddSeconds(-10), oldest.AddHours(2)], remaining.Select(e => e.StartUtc));
     }
+
+    [Fact]
+    public async Task FehlendeKennung_UndFehlendeDateien_NichtsWirdGeloescht()
+    {
+        var freeSpace = new FakeFreeSpace();
+        using var factory = new LittleSisterFactory { ConfigureServices = s => s.AddSingleton<IFreeSpaceProvider>(freeSpace) };
+        var admin = await factory.CreateAdminClientAsync();
+        await SeedAsync(factory, admin, hours: 48, quotaGb: 100, maxDays: 1);
+
+        // Freigabe nicht eingehängt: leerer Einhängepunkt auf einer kleinen Platte
+        Directory.Delete(factory.RecordingsPath, recursive: true);
+        Directory.CreateDirectory(factory.RecordingsPath);
+        freeSpace.Available = 0;
+
+        var deleted = await factory.Services.GetRequiredService<RetentionService>().RunOnceAsync(CancellationToken.None);
+
+        Assert.Equal(0, deleted);
+        Assert.Equal(48, (await SegmentsAsync(factory)).Count);
+        Assert.False(File.Exists(StorageMarker.PathOf(factory.RecordingsPath)));
+    }
+
+    [Fact]
+    public async Task FehlendeKennung_BeiVorhandenenAufnahmen_WirdAngelegt()
+    {
+        using var factory = new LittleSisterFactory();
+        var admin = await factory.CreateAdminClientAsync();
+        await SeedAsync(factory, admin, hours: 48, quotaGb: 100, maxDays: 1);
+        Assert.True(File.Exists(StorageMarker.PathOf(factory.RecordingsPath))); // von der Einrichtung angelegt
+        File.Delete(StorageMarker.PathOf(factory.RecordingsPath)); // Installation von vor der Kennung
+
+        var deleted = await factory.Services.GetRequiredService<RetentionService>().RunOnceAsync(CancellationToken.None);
+
+        Assert.InRange(deleted, 23, 24);
+        Assert.True(File.Exists(StorageMarker.PathOf(factory.RecordingsPath)));
+    }
 }

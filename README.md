@@ -135,7 +135,10 @@ recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.jpg   Vorschaubilder des Segments
 recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
 recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorlauf (nur bei Aufnahme bei Bewegung)
+recordings/.little-sister                         Kennung des Aufnahmeordners, nicht löschen
 ```
+
+Die Kennung `.little-sister` schützt vor Datenverlust, wenn eine Platte oder Netzfreigabe beim Start nicht eingehängt ist: Fehlt sie, pausiert die Aufnahme (Kamerastatus „Fehler“, Meldung im Protokoll) und der Ringspeicher löscht nichts, statt auf der falschen Platte zu schreiben und wegen scheinbar fehlenden Platzes alte Aufnahmen zu entfernen. Sobald der Ordner wieder da ist, läuft die Aufnahme innerhalb von 30 Sekunden weiter. Die Datei entsteht beim Einrichten des Aufnahmeordners; bei älteren Installationen automatisch, sobald eine der ältesten bekannten Aufnahmen im Ordner gefunden wird.
 
 Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment.
 

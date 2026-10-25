@@ -162,7 +162,8 @@ fi
 sudo tee /etc/systemd/system/little-sister.service >/dev/null <<EOF
 [Unit]
 Description=Little Sister (Kameras, Aufnahme, Live-Ansicht)
-After=network-online.target
+# Erst nach dem Einhängen von Platten und Freigaben starten (fehlt eine, startet der Dienst trotzdem)
+After=network-online.target local-fs.target remote-fs.target
 Wants=network-online.target
 
 [Service]
