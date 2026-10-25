@@ -9,14 +9,12 @@
 #   REGISTRY_USERNAME, REGISTRY_PASSWORD
 name: CI
 
-# Tests laufen bei jedem Commit auf main und bei Pull Requests nach main,
-# das Docker-Image entsteht nur für Versions-Tags (v0.1.1, v0.1.2-test, …)
+# Läuft nur für Versions-Tags (v0.1.1, v0.1.2-test, …): bauen, testen, Docker-Image.
+# Commits und Pull Requests lösen nichts aus, um Actions-Minuten zu sparen;
+# von Hand startbar unter Actions → CI → "Run workflow" (dann nur bauen und testen).
 on:
   push:
-    branches: [main]
     tags: ['v*']
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

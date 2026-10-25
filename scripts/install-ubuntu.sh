@@ -158,12 +158,20 @@ LittleSister__DefaultRecordingsPath=$RECORDINGS_DIR
 EOF
 fi
 
-# 7) systemd-Dienst: startet mit dem Server und nach einem Absturz neu
+# 7) systemd-Dienst: startet mit dem Server und nach einem Absturz neu.
+# Liegt der Aufnahmeordner auf einer eigenen Einhängung (z. B. Freigabe mit "nofail" in /etc/fstab), wartet der Dienst
+# beim Start auf sie und wird beim Herunterfahren vor dem Aushängen gestoppt. Nur Reihenfolge: Fehlt sie, startet er trotzdem.
+MOUNT_AFTER=""
+MOUNT_POINT="$(findmnt -n -o TARGET --target "$RECORDINGS_DIR" 2>/dev/null || true)"
+if [[ -n "$MOUNT_POINT" && "$MOUNT_POINT" != "/" ]]; then
+  MOUNT_AFTER=" $(systemd-escape -p --suffix=mount "$MOUNT_POINT")"
+  echo "Dienst wartet auf die Einhängung $MOUNT_POINT"
+fi
 sudo tee /etc/systemd/system/little-sister.service >/dev/null <<EOF
 [Unit]
 Description=Little Sister (Kameras, Aufnahme, Live-Ansicht)
 # Erst nach dem Einhängen von Platten und Freigaben starten (fehlt eine, startet der Dienst trotzdem)
-After=network-online.target local-fs.target remote-fs.target
+After=network-online.target local-fs.target remote-fs.target$MOUNT_AFTER
 Wants=network-online.target
 
 [Service]
