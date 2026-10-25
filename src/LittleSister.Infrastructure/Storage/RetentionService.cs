@@ -58,6 +58,29 @@ public sealed class RetentionService(
         var deleted = 0;
         var now = time.GetUtcNow();
 
+        // Ordner ohne Kennung (z. B. Freigabe nicht eingehängt) nicht anfassen: Löschen würde nur Datenbankeinträge
+        // zu Dateien entfernen, die eigentlich noch da sind, und der Freispeicher gehört zur falschen Platte
+        var available = new Dictionary<string, bool>();
+        async Task<bool> IsAvailableAsync(string path)
+        {
+            if (!available.TryGetValue(path, out var ok))
+            {
+                available[path] = ok = await StorageMarker.IsAvailableAsync(db, path, ct);
+                if (!ok)
+                    logger.LogWarning("Aufnahmeordner {Path} ist nicht erreichbar oder nicht eingehängt (Datei {Marker} fehlt); Ringspeicher löscht dort nichts",
+                        path, StorageMarker.FileName);
+            }
+            return ok;
+        }
+        async Task<int> DeleteAvailableAsync(IReadOnlyList<Segment> segments)
+        {
+            var keep = new List<Segment>();
+            foreach (var segment in segments)
+                if (await IsAvailableAsync(segment.StorageRoot))
+                    keep.Add(segment);
+            return await DeleteAsync(db, keep, ct);
+        }
+
         foreach (var camera in await db.Cameras.AsNoTracking().ToListAsync(ct))
         {
             // 1) Maximale Aufbewahrung (Datenschutz)
@@ -66,22 +89,21 @@ public sealed class RetentionService(
                 var expired = await db.Segments
                     .Where(s => s.CameraId == camera.Id && !s.IsProtected && s.EndUtc < cutoff)
                     .ToListAsync(ct);
-                deleted += await DeleteAsync(db, expired, ct);
+                deleted += await DeleteAvailableAsync(expired);
             }
 
             // 2) Kontingent der Kamera
             var used = await db.Segments.Where(s => s.CameraId == camera.Id).SumAsync(s => s.SizeBytes, ct);
             if (used > camera.QuotaBytes)
-                deleted += await DeleteAsync(db, await OldestToFreeAsync(db, used - camera.QuotaBytes, camera.Id, ct), ct);
+                deleted += await DeleteAvailableAsync(await OldestToFreeAsync(db, used - camera.QuotaBytes, camera.Id, ct));
         }
 
         // 3) Globale Freispeichergrenze über alle Kameras
-        var available = freeSpace.GetAvailableBytes(root);
         var required = (long)(settings.MinFreeGb * Gb);
-        if (available is { } free && free < required)
+        if (await IsAvailableAsync(root) && freeSpace.GetAvailableBytes(root) is { } free && free < required)
         {
             logger.LogWarning("Nur noch {Free:F1} GB frei (Grenze {Min} GB); lösche älteste Aufnahmen", free / (double)Gb, settings.MinFreeGb);
-            deleted += await DeleteAsync(db, await OldestToFreeAsync(db, required - free, null, ct), ct);
+            deleted += await DeleteAvailableAsync(await OldestToFreeAsync(db, required - free, null, ct));
         }
 
         if (deleted > 0)

@@ -3,6 +3,7 @@ using LittleSister.Core.Cameras;
 using LittleSister.Core.Settings;
 using LittleSister.Infrastructure.Data;
 using LittleSister.Infrastructure.Events;
+using LittleSister.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +30,7 @@ public sealed class RecordingSupervisor(
     private readonly ILogger logger = loggers.CreateLogger<RecordingSupervisor>();
     private readonly ChannelReader<bool> reload = changes.Subscribe();
     private readonly Dictionary<Guid, Running> running = [];
+    private bool rootMissing;
 
     private sealed record Running(string Fingerprint, CancellationTokenSource Cts, Task Task);
 
@@ -65,7 +67,19 @@ public sealed class RecordingSupervisor(
 
         var settings = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == SystemSettings.SingletonId, ct);
         var root = settings?.RecordingsPath;
-        var cameras = string.IsNullOrEmpty(root)
+        // Ohne Kennung im Aufnahmeordner (Freigabe nicht eingehängt) nicht auf die falsche Platte schreiben;
+        // der Abgleich alle 30 s startet die Aufnahme, sobald der Ordner wieder da ist
+        var rootAvailable = !string.IsNullOrEmpty(root) && await StorageMarker.IsAvailableAsync(db, root, ct);
+        if (!string.IsNullOrEmpty(root) && rootAvailable == rootMissing)
+        {
+            rootMissing = !rootAvailable;
+            if (rootMissing)
+                logger.LogError("Aufnahmeordner {Path} ist nicht erreichbar oder nicht eingehängt (Datei {Marker} fehlt); Aufnahme pausiert",
+                    root, StorageMarker.FileName);
+            else
+                logger.LogInformation("Aufnahmeordner {Path} ist wieder erreichbar", root);
+        }
+        var cameras = !rootAvailable
             ? []
             : await db.Cameras.AsNoTracking().Where(c => c.RecordingMode != RecordingMode.Off).ToListAsync(ct);
 
@@ -86,10 +100,12 @@ public sealed class RecordingSupervisor(
             logger.LogInformation("Aufnahme gestartet: {Camera}", camera.Name);
         }
 
-        // Kameras ohne Aufnahme als "aus" führen, gelöschte vergessen
-        var allIds = await db.Cameras.Select(c => c.Id).ToListAsync(ct);
-        foreach (var id in allIds.Where(id => !running.ContainsKey(id)))
-            statuses.Update(id, s => s with { State = CameraState.Idle });
+        // Kameras ohne Aufnahme als "aus" führen, bei fehlendem Aufnahmeordner als Fehler
+        var all = await db.Cameras.AsNoTracking().Select(c => new { c.Id, c.RecordingMode }).ToListAsync(ct);
+        foreach (var camera in all.Where(c => !running.ContainsKey(c.Id)))
+            statuses.Update(camera.Id, s => rootMissing && camera.RecordingMode != RecordingMode.Off
+                ? s with { State = CameraState.Error, LastError = $"Aufnahmeordner {root} nicht erreichbar oder nicht eingehängt" }
+                : s with { State = CameraState.Idle });
     }
 
     private async Task StopAsync(Guid id)

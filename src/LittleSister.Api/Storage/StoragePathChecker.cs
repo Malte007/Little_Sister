@@ -1,6 +1,8 @@
+using LittleSister.Infrastructure.Storage;
+
 namespace LittleSister.Api.Storage;
 
-/// <summary>Prüft, ob ein Ordner für Aufnahmen angelegt und beschrieben werden kann.</summary>
+/// <summary>Prüft, ob ein Ordner für Aufnahmen angelegt und beschrieben werden kann, und kennzeichnet ihn als Aufnahmeordner.</summary>
 internal sealed class StoragePathChecker
 {
     /// <summary>Liefert <c>null</c>, wenn alles passt, sonst einen Fehlercode für die Oberfläche.</summary>
@@ -12,6 +14,7 @@ internal sealed class StoragePathChecker
             var probe = Path.Combine(path, $".littlesister-write-test-{Guid.NewGuid():N}");
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
+            StorageMarker.Write(path);
             return null;
         }
         catch (UnauthorizedAccessException)

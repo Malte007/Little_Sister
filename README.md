@@ -53,7 +53,21 @@ cd little_sister
 | `cd little_sister` | wechselt in den Projektordner |
 | `./scripts/install-ubuntu.sh` | baut alles, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
 
-Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`).
+Bei der Erstinstallation fragt das Skript nach dem Port für Oberfläche und API (Enter = 8080) und prüft, ob er frei ist. Ohne Rückfrage geht es mit `env HTTP_PORT=9000 ./scripts/install-ubuntu.sh`. Bei Updates wird nicht erneut gefragt, der eingestellte Port bleibt.
+
+Port später ändern:
+
+```fish
+sudo nano /etc/little-sister/little-sister.env
+sudo systemctl restart little-sister
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `sudo nano …` | öffnet die Einstellungen; dort `ASPNETCORE_HTTP_PORTS=8080` auf den neuen Port setzen |
+| `sudo systemctl restart little-sister` | startet den Dienst mit dem neuen Port neu |
+
+Danach `http://<server>:<port>` öffnen (Standard 8080); der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`). Liegt der Ordner auf einer Netzfreigabe oder eigenen Platte, unbedingt [Aufnahmeordner auf Netzfreigabe oder eigener Platte](#aufnahmeordner-auf-netzfreigabe-oder-eigener-platte) lesen.
 
 | Was | Wo |
 | --- | --- |
@@ -76,7 +90,7 @@ git pull
 | `git pull` | holt den neuesten Stand |
 | `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu; Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert |
 
-Ist eine Firewall (ufw) aktiv, müssen die Ports 8080 (Oberfläche) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
+Ist eine Firewall (ufw) aktiv, müssen der Port für die Oberfläche (Standard 8080) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
 
 ## Betrieb
 
@@ -121,9 +135,46 @@ recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.jpg   Vorschaubilder des Segments
 recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
 recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorlauf (nur bei Aufnahme bei Bewegung)
+recordings/.little-sister                         Kennung des Aufnahmeordners, nicht löschen
 ```
 
-Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment.
+Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment. Zur versteckten Datei `.little-sister` siehe den nächsten Abschnitt.
+
+### Aufnahmeordner auf Netzfreigabe oder eigener Platte
+
+> **Wichtig:** Im Aufnahmeordner liegt die versteckte Datei `.little-sister` (wegen des Punkts am Anfang zeigt `ls` sie nur mit `ls -a`). Sie kennzeichnet den Ordner als den eingerichteten Aufnahmeordner. **Nicht löschen.**
+
+Wozu: Liegt der Aufnahmeordner auf einer Netzfreigabe (NFS, SMB, virtiofs) oder einer eigenen Platte und ist diese beim Start nicht eingehängt, ist der Ordner nur der leere Einhängepunkt auf der Systemplatte. Ohne Schutz würde Little Sister dorthin aufnehmen, die Systemplatte füllen und wegen scheinbar fehlenden Speicherplatzes (Freispeichergrenze) alle alten Aufnahmen löschen.
+
+Verhalten, wenn `.little-sister` fehlt:
+
+| Was | Verhalten |
+| --- | --- |
+| Aufnahme | pausiert; Kamerastatus „Fehler“ mit „Aufnahmeordner … nicht erreichbar oder nicht eingehängt“, Fehlermeldung im Protokoll |
+| Ringspeicher | löscht in diesem Ordner nichts (weder nach Kontingent, Aufbewahrung noch Freispeichergrenze) |
+| Live-Ansicht, Wiedergabe | laufen weiter; Aufnahmen auf der fehlenden Freigabe lassen sich bis zum Einhängen nicht abspielen |
+| Freigabe wieder da | Aufnahme startet innerhalb von 30 Sekunden von selbst, ein Neustart ist nicht nötig |
+
+Wann die Datei entsteht:
+
+- beim Einrichten des Aufnahmeordners und beim Wechsel auf einen anderen Ordner in den Einstellungen;
+- bei Installationen von vor dieser Prüfung automatisch, wenn noch keine Aufnahmen bekannt sind oder eine der 20 ältesten bekannten Aufnahmen im Ordner gefunden wird. **Vor dem ersten Update deshalb prüfen, dass die Freigabe eingehängt ist** (`findmnt <aufnahmeordner>`).
+
+Prüfen und von Hand anlegen (nur wenn die Freigabe sicher eingehängt ist, z. B. nach dem Umzug der Aufnahmen auf eine neue Platte):
+
+```fish
+findmnt /srv/little-sister/recordings
+ls -a /srv/little-sister/recordings
+sudo -u littlesister touch /srv/little-sister/recordings/.little-sister
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `findmnt …` | zeigt, ob und was dort eingehängt ist; keine Ausgabe = nicht eingehängt |
+| `ls -a …` | listet den Ordner samt versteckter Dateien, `.little-sister` sollte dabei sein |
+| `sudo -u littlesister touch …` | legt die Kennung als Dienstbenutzer an; danach nimmt Little Sister innerhalb von 30 Sekunden wieder auf |
+
+Der systemd-Dienst startet erst nach dem Einhängen der Dateisysteme aus `/etc/fstab`. Fehlt eine Freigabe trotzdem, startet er dennoch, damit die Live-Ansicht läuft; die Kennung schützt dann die Aufnahmen.
 
 ### Konfiguration
 
@@ -151,7 +202,7 @@ Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg. Für Dock
 
 ### Fertiges Image von GitHub (ghcr.io)
 
-Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Normale Commits auf `main` und Pull Requests werden nur getestet, sie bauen kein Image.
+Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Vorher wird gebaut und getestet. Normale Commits und Pull Requests lösen die CI nicht aus.
 
 ```
 ghcr.io/malte007/little_sister:0.1.1       genau diese Version (Tag v0.1.1)
@@ -335,7 +386,7 @@ dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/Little
 
 ## CI (GitHub und Gitea)
 
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Bei jedem Commit auf `main` und bei Pull Requests nach `main` wird gebaut und getestet. Nur wenn ein Versions-Tag `v*` gepusht wird, entsteht zusätzlich das Docker-Image und wird veröffentlicht (siehe „Fertiges Image von GitHub“). Von Hand startest du die Tests unter GitHub → Actions → CI → „Run workflow“.
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Sie läuft nur, wenn ein Versions-Tag `v*` gepusht wird: bauen, testen und danach das Docker-Image veröffentlichen (siehe „Fertiges Image von GitHub“). Commits und Pull Requests lösen sie nicht aus, damit das kostenlose Actions-Kontingent geschont wird; vor jedem Pull Request deshalb lokal `./scripts/build.sh` laufen lassen (siehe „Bauen und Testen wie die CI“). Von Hand startest du Bauen und Testen unter GitHub → Actions → CI → „Run workflow“.
 
 Für Gitea unter *Repository → Einstellungen → Actions*:
 
