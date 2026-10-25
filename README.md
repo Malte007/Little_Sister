@@ -67,7 +67,7 @@ sudo systemctl restart little-sister
 | `sudo nano …` | öffnet die Einstellungen; dort `ASPNETCORE_HTTP_PORTS=8080` auf den neuen Port setzen |
 | `sudo systemctl restart little-sister` | startet den Dienst mit dem neuen Port neu |
 
-Danach `http://<server>:<port>` öffnen (Standard 8080); der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`).
+Danach `http://<server>:<port>` öffnen (Standard 8080); der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`). Liegt der Ordner auf einer Netzfreigabe oder eigenen Platte, unbedingt [Aufnahmeordner auf Netzfreigabe oder eigener Platte](#aufnahmeordner-auf-netzfreigabe-oder-eigener-platte) lesen.
 
 | Was | Wo |
 | --- | --- |
@@ -138,9 +138,43 @@ recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorl
 recordings/.little-sister                         Kennung des Aufnahmeordners, nicht löschen
 ```
 
-Die Kennung `.little-sister` schützt vor Datenverlust, wenn eine Platte oder Netzfreigabe beim Start nicht eingehängt ist: Fehlt sie, pausiert die Aufnahme (Kamerastatus „Fehler“, Meldung im Protokoll) und der Ringspeicher löscht nichts, statt auf der falschen Platte zu schreiben und wegen scheinbar fehlenden Platzes alte Aufnahmen zu entfernen. Sobald der Ordner wieder da ist, läuft die Aufnahme innerhalb von 30 Sekunden weiter. Die Datei entsteht beim Einrichten des Aufnahmeordners; bei älteren Installationen automatisch, sobald eine der ältesten bekannten Aufnahmen im Ordner gefunden wird.
+Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment. Zur versteckten Datei `.little-sister` siehe den nächsten Abschnitt.
 
-Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment.
+### Aufnahmeordner auf Netzfreigabe oder eigener Platte
+
+> **Wichtig:** Im Aufnahmeordner liegt die versteckte Datei `.little-sister` (wegen des Punkts am Anfang zeigt `ls` sie nur mit `ls -a`). Sie kennzeichnet den Ordner als den eingerichteten Aufnahmeordner. **Nicht löschen.**
+
+Wozu: Liegt der Aufnahmeordner auf einer Netzfreigabe (NFS, SMB, virtiofs) oder einer eigenen Platte und ist diese beim Start nicht eingehängt, ist der Ordner nur der leere Einhängepunkt auf der Systemplatte. Ohne Schutz würde Little Sister dorthin aufnehmen, die Systemplatte füllen und wegen scheinbar fehlenden Speicherplatzes (Freispeichergrenze) alle alten Aufnahmen löschen.
+
+Verhalten, wenn `.little-sister` fehlt:
+
+| Was | Verhalten |
+| --- | --- |
+| Aufnahme | pausiert; Kamerastatus „Fehler“ mit „Aufnahmeordner … nicht erreichbar oder nicht eingehängt“, Fehlermeldung im Protokoll |
+| Ringspeicher | löscht in diesem Ordner nichts (weder nach Kontingent, Aufbewahrung noch Freispeichergrenze) |
+| Live-Ansicht, Wiedergabe | laufen weiter; Aufnahmen auf der fehlenden Freigabe lassen sich bis zum Einhängen nicht abspielen |
+| Freigabe wieder da | Aufnahme startet innerhalb von 30 Sekunden von selbst, ein Neustart ist nicht nötig |
+
+Wann die Datei entsteht:
+
+- beim Einrichten des Aufnahmeordners und beim Wechsel auf einen anderen Ordner in den Einstellungen;
+- bei Installationen von vor dieser Prüfung automatisch, wenn noch keine Aufnahmen bekannt sind oder eine der 20 ältesten bekannten Aufnahmen im Ordner gefunden wird. **Vor dem ersten Update deshalb prüfen, dass die Freigabe eingehängt ist** (`findmnt <aufnahmeordner>`).
+
+Prüfen und von Hand anlegen (nur wenn die Freigabe sicher eingehängt ist, z. B. nach dem Umzug der Aufnahmen auf eine neue Platte):
+
+```fish
+findmnt /srv/little-sister/recordings
+ls -a /srv/little-sister/recordings
+sudo -u littlesister touch /srv/little-sister/recordings/.little-sister
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `findmnt …` | zeigt, ob und was dort eingehängt ist; keine Ausgabe = nicht eingehängt |
+| `ls -a …` | listet den Ordner samt versteckter Dateien, `.little-sister` sollte dabei sein |
+| `sudo -u littlesister touch …` | legt die Kennung als Dienstbenutzer an; danach nimmt Little Sister innerhalb von 30 Sekunden wieder auf |
+
+Der systemd-Dienst startet erst nach dem Einhängen der Dateisysteme aus `/etc/fstab`. Fehlt eine Freigabe trotzdem, startet er dennoch, damit die Live-Ansicht läuft; die Kennung schützt dann die Aufnahmen.
 
 ### Konfiguration
 
