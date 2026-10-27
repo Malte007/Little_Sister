@@ -8,5 +8,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>false</InvariantGlobalization>
     <Version>0.1.0</Version>
+    <!-- Urheber und Lizenz (Doppellizenz: AGPL oder kommerziell beim Urheber) -->
+    <Authors>Malte Hirte</Authors>
+    <Copyright>Copyright (c) 2026 Malte Hirte</Copyright>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
 </Project>

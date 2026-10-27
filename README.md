@@ -403,8 +403,12 @@ Für Gitea unter *Repository → Einstellungen → Actions*:
 
 ## Lizenz
 
-Little Sister ist **proprietär**, alle Rechte vorbehalten (siehe [LICENSE](LICENSE)). Nutzung, Weitergabe und Änderung nur mit Erlaubnis des Urhebers.
+Copyright (c) 2026 Malte Hirte.
 
+Little Sister ist freie Software unter der **GNU Affero General Public License, Version 3** (AGPL-3.0-only, Volltext in [LICENSE](LICENSE)).
+
+- Jeder darf Little Sister nutzen, ändern und weitergeben, auch gewerblich. Wer es weitergibt oder eine geänderte Fassung über das Netzwerk für andere betreibt, muss den vollständigen Quellcode unter derselben Lizenz zugänglich machen.
+- **Doppellizenz:** Wer Little Sister ohne die Pflichten der AGPL einsetzen möchte (zum Beispiel in einem geschlossenen Produkt), kann beim Urheber eine kommerzielle Lizenz anfragen.
 - Mitgelieferte Fremdsoftware und ihre Lizenzen stehen in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES); die Datei liegt auch im Docker-Image unter `/app/THIRD-PARTY-NOTICES`.
-- Neue Abhängigkeiten nur mit freizügiger Lizenz (MIT, BSD, Apache 2.0, PostgreSQL-Lizenz). Keine GPL-Bibliotheken im eigenen Prozess; ffmpeg wird nur als eigener Prozess gestartet.
-- Beiträge Dritter nur mit Contributor License Agreement.
+- Neue Abhängigkeiten nur mit freizügiger Lizenz (MIT, BSD, Apache 2.0, PostgreSQL-Lizenz), damit die Doppellizenz möglich bleibt. Keine GPL-Bibliotheken im eigenen Prozess; ffmpeg wird nur als eigener Prozess gestartet.
+- Beiträge Dritter nur mit Contributor License Agreement, siehe [CONTRIBUTING.md](CONTRIBUTING.md).
