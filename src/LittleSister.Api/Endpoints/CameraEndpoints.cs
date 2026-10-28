@@ -25,6 +25,8 @@ internal static class CameraEndpoints
         group.MapPut("/{id:guid}", Update).RequireAuthorization(Policies.Admin);
         group.MapDelete("/{id:guid}", Delete).RequireAuthorization(Policies.Admin);
         group.MapDelete("/{id:guid}/recordings", DeleteRecordings).RequireAuthorization(Policies.Admin);
+        group.MapGet("/export", Export).RequireAuthorization(Policies.Admin);
+        group.MapPost("/import", Import).RequireAuthorization(Policies.Admin);
         group.MapPost("/test-stream", TestStream).RequireAuthorization(Policies.Admin);
         group.MapPost("/snapshot", StreamSnapshot).RequireAuthorization(Policies.Admin);
     }
@@ -66,6 +68,17 @@ internal static class CameraEndpoints
             : Enum.GetValues<MotionDetection>().Cast<MotionDetection?>()
                 .FirstOrDefault(m => m.ToString()!.Equals(MotionDetection, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>Exportdatei mit Kamera-Konfigurationen; ohne Aufnahmen und Ereignisse, Passwörter nur auf Wunsch (Klartext).</summary>
+    /// <param name="Format">Immer <see cref="ExportFormat"/>, damit fremde Dateien erkannt werden.</param>
+    /// <param name="Version">Version des Dateiformats; neuere Versionen werden abgelehnt.</param>
+    internal sealed record CameraExportFile(string Format, int Version, DateTimeOffset ExportedAtUtc, IReadOnlyList<CameraRequest> Cameras);
+
+    /// <param name="NeedsPassword">Benutzername gesetzt, aber die Datei enthielt kein Passwort.</param>
+    internal sealed record ImportedCamera(Guid Id, string Name, bool NeedsPassword);
+
+    internal const string ExportFormat = "little-sister-cameras";
+    internal const int ExportVersion = 1;
 
     internal sealed record StorageUsage(long UsedBytes, int SegmentCount, DateTimeOffset? OldestUtc, DateTimeOffset? NewestUtc, double? EstimatedDays);
 
@@ -176,6 +189,78 @@ internal static class CameraEndpoints
             });
         }
         return Results.NoContent();
+    }
+
+    /// <summary>Konfiguration einer, mehrerer (<c>?id=…&amp;id=…</c>) oder aller Kameras als Exportdatei.</summary>
+    /// <param name="includePasswords">true: Passwörter im Klartext mitexportieren, damit die Datei auf jedem Server sofort funktioniert.</param>
+    private static async Task<IResult> Export(
+        Guid[]? id, bool? includePasswords, LittleSisterDbContext db, CameraCredentialProtector credentials, TimeProvider time)
+    {
+        var query = db.Cameras.AsNoTracking();
+        if (id is { Length: > 0 })
+            query = query.Where(c => id.Contains(c.Id));
+        var cameras = await query.OrderBy(c => c.Name).ToListAsync();
+        if (id is { Length: > 0 } && cameras.Count != id.Distinct().Count())
+            return Results.NotFound();
+
+        var file = new CameraExportFile(ExportFormat, ExportVersion, time.GetUtcNow(), [.. cameras.Select(c => new CameraRequest(
+            c.Name, c.MainStreamUrl, c.SubStreamUrl, c.Username, includePasswords == true ? credentials.Unprotect(c.ProtectedPassword) : null, c.OnvifAddress, c.Manufacturer, c.Model,
+            c.RecordingEnabled, c.QuotaGb, c.MaxRetentionDays, c.Rotation, c.RecordingMode.ToString(), c.PreRollSeconds,
+            c.PostRollSeconds, c.MotionDetection.ToString(), c.MotionSensitivity, c.MotionZones))]);
+        return Results.Ok(file);
+    }
+
+    /// <summary>
+    /// Legt die Kameras einer Exportdatei als neue Kameras an. Alles oder nichts: Ist eine Kamera ungültig, wird keine angelegt.
+    /// Gleichnamige Kameras bekommen " (2)", " (3)" … angehängt.
+    /// </summary>
+    private static async Task<IResult> Import(
+        CameraExportFile file, LittleSisterDbContext db, CameraCredentialProtector credentials, CameraChanges changes, TimeProvider time)
+    {
+        if (file.Format != ExportFormat)
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "importInvalidFile");
+        if (file.Version > ExportVersion)
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "importNewerVersion");
+        if (file.Cameras is not { Count: > 0 })
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "importEmpty");
+
+        var errors = new Dictionary<string, string[]>();
+        var normalized = new List<CameraRequest>();
+        for (var i = 0; i < file.Cameras.Count; i++)
+        {
+            var (request, cameraErrors) = Normalize(file.Cameras[i]);
+            foreach (var (field, codes) in cameraErrors)
+                errors[$"cameras[{i}].{field}"] = codes;
+            normalized.Add(request with { Password = string.IsNullOrEmpty(request.Password) ? null : request.Password });
+        }
+        if (errors.Count > 0)
+            return Results.ValidationProblem(errors);
+
+        var names = (await db.Cameras.Select(c => c.Name).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var imported = new List<ImportedCamera>();
+        foreach (var request in normalized)
+        {
+            var name = UniqueName(request.Name, names);
+            names.Add(name);
+            var camera = new Camera { CreatedAtUtc = time.GetUtcNow() };
+            Apply(camera, request with { Name = name }, credentials, keepPasswordIfNull: false);
+            db.Cameras.Add(camera);
+            imported.Add(new ImportedCamera(camera.Id, name, camera.Username is not null && request.Password is null));
+        }
+        await db.SaveChangesAsync();
+
+        changes.Notify();
+        return Results.Ok(imported);
+    }
+
+    /// <summary>Hängt " (2)", " (3)" … an, bis der Name frei ist.</summary>
+    internal static string UniqueName(string name, IReadOnlySet<string> taken)
+    {
+        if (!taken.Contains(name))
+            return name;
+        for (var n = 2; ; n++)
+            if (!taken.Contains($"{name} ({n})"))
+                return $"{name} ({n})";
     }
 
     /// <param name="Deleted">Gelöschte Segmente.</param>

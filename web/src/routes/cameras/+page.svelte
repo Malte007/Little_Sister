@@ -4,7 +4,9 @@
 	import { fade, fly } from 'svelte/transition';
 	import { invalidate } from '$app/navigation';
 	import { api, ApiError } from '#lib/api.js';
+	import { importCameras, type ImportedCamera } from '#lib/cameraTransfer.js';
 	import CameraCard from '#lib/components/CameraCard.svelte';
+	import CameraExport from '#lib/components/CameraExport.svelte';
 	import Field from '#lib/components/Field.svelte';
 	import StorageBar from '#lib/components/StorageBar.svelte';
 	import { formatBytes } from '#lib/format.js';
@@ -59,6 +61,37 @@
 		}
 	}
 
+	// Import: Datei wählen, Kameras anlegen, Übersicht zeigen
+	let importInput = $state<HTMLInputElement>();
+	let imported = $state<ImportedCamera[]>();
+	let importError = $state<string>();
+
+	async function runImport() {
+		const file = importInput?.files?.[0];
+		if (!file) return;
+		importError = undefined;
+		imported = undefined;
+		try {
+			imported = await importCameras(file);
+			await invalidate((url) => url.pathname === '/api/cameras');
+		} catch (e) {
+			importError = !(e instanceof ApiError)
+				? t('errors.network')
+				: (importFieldError(e) ?? tError(e.code));
+		} finally {
+			importInput!.value = '';
+		}
+	}
+
+	/** Feldfehler wie "cameras[1].mainStreamUrl" als "Kamera 2: …" anzeigen. */
+	function importFieldError(e: ApiError): string | undefined {
+		const [key, codes] = Object.entries(e.fields)[0] ?? [];
+		const index = key?.match(/^cameras\[(\d+)\]/)?.[1];
+		return index === undefined
+			? undefined
+			: t('cameras.importCameraError', { number: Number(index) + 1, error: tError(codes[0]) });
+	}
+
 	const total = $derived(data.storage.totalBytes ?? 0);
 	const used = $derived(total - (data.storage.freeBytes ?? 0));
 </script>
@@ -81,6 +114,44 @@
 			</div>
 		{/each}
 	</div>
+{/if}
+
+{#if isAdmin}
+	<section class="card transfer">
+		<h2>{t('cameras.transferTitle')}</h2>
+		<p class="muted small">{t('cameras.transferHint')}</p>
+		<div class="transfer-grid">
+			{#if data.cameras.length > 0}
+				<CameraExport name="kameras" />
+			{/if}
+			<div>
+				<input
+					bind:this={importInput}
+					type="file"
+					accept=".json,application/json"
+					hidden
+					onchange={runImport}
+				/>
+				<button class="secondary" onclick={() => importInput?.click()}>{t('cameras.import')}</button
+				>
+			</div>
+		</div>
+		{#if importError}<div class="alert">{importError}</div>{/if}
+		{#if imported}
+			<div class="imported" transition:fade>
+				<p>{t('cameras.importDone', { count: imported.length })}</p>
+				<ul>
+					{#each imported as camera (camera.id)}
+						<li>
+							<a href="/cameras/{camera.id}">{camera.name}</a>
+							{#if camera.needsPassword}<span class="needs">{t('cameras.importNeedsPassword')}</span
+								>{/if}
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+	</section>
 {/if}
 
 <section class="card storage">
@@ -149,6 +220,33 @@
 	.empty {
 		text-align: center;
 		padding: 2.5rem;
+	}
+	.transfer {
+		margin-top: 2rem;
+		padding: 1.5rem;
+	}
+	.transfer h2 {
+		font-size: 1.1rem;
+		margin-bottom: 0.25rem;
+	}
+	.transfer-grid {
+		display: flex;
+		gap: 2rem;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		margin-top: 1rem;
+	}
+	.imported {
+		margin-top: 1rem;
+	}
+	.imported ul {
+		margin: 0.5rem 0 0;
+		padding-left: 1.25rem;
+	}
+	.needs {
+		margin-left: 0.5rem;
+		font-size: 0.8rem;
+		color: var(--danger);
 	}
 	.storage {
 		margin-top: 2rem;

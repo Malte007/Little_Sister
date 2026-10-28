@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { api, ApiError, type CameraInput } from '#lib/api.js';
+	import CameraExport from '#lib/components/CameraExport.svelte';
 	import CameraForm from '#lib/components/CameraForm.svelte';
 	import Field from '#lib/components/Field.svelte';
 	import { t, tError } from '#lib/i18n/index.svelte.js';
@@ -69,6 +70,11 @@
 			/>
 		{/key}
 	</section>
+	<section class="card">
+		<h2>{t('cameras.exportTitle')}</h2>
+		<p class="muted">{t('cameras.exportHint')}</p>
+		<CameraExport ids={[data.camera.id]} name={data.camera.name} />
+	</section>
 	<section class="card danger-zone">
 		<h2>{t('cameras.wipeTitle')}</h2>
 		<p class="muted">{t('cameras.wipeHint')}</p>
@@ -106,7 +112,7 @@
 		padding: 1.5rem;
 		margin: 1rem 0 1.5rem;
 	}
-	.danger-zone h2 {
+	.card h2 {
 		margin-top: 0;
 		font-size: 1.1rem;
 	}

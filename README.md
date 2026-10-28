@@ -128,6 +128,20 @@ Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung
 
 Bei Erkennung per ONVIF holt Little Sister die Meldungen bevorzugt selbst bei der Kamera ab (PullPoint). Kann eine Kamera das nicht (Fehler „ActionNotSupported“), schickt sie ihre Meldungen per HTTP an Little Sister (WS-BaseNotification) an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server erreichen: Der HTTP-Port (8080, in der Entwicklung 5080) darf von der Firewall nicht gesperrt sein, und Little Sister darf nicht nur auf `localhost` lauschen. Die Serveradresse ermittelt Little Sister selbst. Hinter NAT oder in Docker mit Bridge-Netz lässt sie sich mit `LittleSister__Events__CallbackUrl` vorgeben.
 
+### Kamera-Konfiguration exportieren und importieren
+
+Admins können Kamera-Einstellungen als JSON-Datei sichern und wieder einspielen, z. B. vor einer Neuinstallation oder für einen zweiten Server:
+
+| Was | Wo |
+| --- | --- |
+| eine Kamera exportieren | Kameras → Kamera bearbeiten → **Konfiguration exportieren** |
+| alle Kameras exportieren | Kameras → **Alle Kameras exportieren** |
+| importieren | Kameras → **Datei importieren …** |
+
+Enthalten sind Name, Streams, Benutzername, ONVIF-Adresse, Drehung, Aufnahmemodus, Vor- und Nachlauf, Kontingent, Aufbewahrung, Bewegungserkennung und Erkennungsbereiche; Aufnahmen und Ereignisse nicht. Passwörter nur, wenn beim Export **Passwörter mitexportieren** angehakt ist. Sie stehen dann im **Klartext** in der Datei, die Datei also wie ein Passwort behandeln. Ohne Passwort zeigt der Import, bei welchen Kameras es noch eingetragen werden muss.
+
+Der Import legt immer **neue** Kameras an, bestehende werden nicht verändert. Gibt es den Namen schon, wird „(2)“, „(3)“ … angehängt. Ist eine Kamera in der Datei ungültig, wird keine angelegt und die Meldung nennt die betroffene Kamera.
+
 ### Ablage der Aufnahmen
 
 ```
