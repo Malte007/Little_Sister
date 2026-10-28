@@ -1,12 +1,12 @@
 THIRD-PARTY-NOTICES
 ===================
 
-Little Sister selbst ist proprietär (siehe LICENSE). Mit Little Sister werden
-die unten aufgeführten Bestandteile Dritter ausgeliefert. Für jeden
-Bestandteil gilt ausschließlich seine eigene Lizenz.
+Little Sister selbst steht unter der AGPL-3.0-only (siehe LICENSE). Mit Little
+Sister werden die unten aufgeführten Bestandteile Dritter ausgeliefert. Für
+jeden Bestandteil gilt ausschließlich seine eigene Lizenz.
 
-Little Sister is proprietary software (see LICENSE). It ships with the
-third-party components listed below, each under its own license.
+Little Sister is licensed under the AGPL-3.0-only (see LICENSE). It ships with
+the third-party components listed below, each under its own license.
 
 Stand: Version 0.1.0. Diese Datei wird bei jeder neuen oder geänderten
 Abhängigkeit aktualisiert und mit jedem Release ausgeliefert.
