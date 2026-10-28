@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Installiert oder aktualisiert Little Sister auf einem Ubuntu-Server als systemd-Dienst (ohne Docker).
-# Aufruf als normaler Benutzer aus dem Projektordner; für Systemschritte wird sudo verwendet.
-# Fehlen .NET 10, ffmpeg oder Node.js, bietet das Skript an, sie zu installieren.
+# Aufruf als normaler Benutzer; für Systemschritte wird sudo verwendet. Zwei Wege:
+#   ./scripts/install-ubuntu.sh                  aus dem Projektordner: baut aus dem Quellcode (braucht .NET SDK und Node.js)
+#   ./install-ubuntu.sh --release [v0.2.0]       lädt das fertige Paket eines GitHub-Release (Standard: neuestes);
+#                                                braucht nur die ASP.NET-Core-Laufzeit 10 und ffmpeg
+# Fehlt etwas davon, bietet das Skript an, es zu installieren.
 #
 # Anpassbar per Umgebungsvariable:
 #   INSTALL_DIR     Programmdateien              (Standard: /opt/little-sister)
@@ -9,13 +12,25 @@
 #   RECORDINGS_DIR  Vorschlag für Aufnahmen      (Standard: /srv/little-sister/recordings)
 #   GO2RTC_VERSION  go2rtc für die Live-Ansicht  (Standard: 1.9.14)
 #   HTTP_PORT       Port für Oberfläche und API  (nur Erstinstallation; sonst wird gefragt, Standard 8080)
+#   GITHUB_REPO     Repository der Releases      (Standard: Malte007/Little_Sister)
+#   GITHUB_TOKEN    nur bei privatem Repository: Token mit Lesezugriff auf Contents
 set -euo pipefail
-cd "$(dirname "$0")/.."
+
+# Aufrufart: aus dem Quellcode bauen oder ein Release laden
+RELEASE=""
+if [[ "${1:-}" == "--release" ]]; then
+  RELEASE="${2:-latest}"
+elif [[ -n "${1:-}" ]]; then
+  echo "Aufruf: $0 [--release [version]]" >&2
+  exit 1
+fi
+[[ -z "$RELEASE" ]] && cd "$(dirname "$0")/.."
 
 INSTALL_DIR="${INSTALL_DIR:-/opt/little-sister}"
 DATA_DIR="${DATA_DIR:-/var/lib/little-sister}"
 RECORDINGS_DIR="${RECORDINGS_DIR:-/srv/little-sister/recordings}"
 GO2RTC_VERSION="${GO2RTC_VERSION:-1.9.14}"
+GITHUB_REPO="${GITHUB_REPO:-Malte007/Little_Sister}"
 SERVICE_USER=littlesister
 ENV_FILE=/etc/little-sister/little-sister.env
 
@@ -65,6 +80,43 @@ choose_port() {
 }
 
 has_dotnet10() { command -v dotnet >/dev/null && dotnet --list-sdks | grep -q '^10\.'; }
+has_aspnet10() { command -v dotnet >/dev/null && dotnet --list-runtimes | grep -q '^Microsoft\.AspNetCore\.App 10\.'; }
+# Was für den gewählten Weg an .NET gebraucht wird: SDK zum Bauen, sonst nur die Laufzeit
+if [[ -n "$RELEASE" ]]; then
+  DOTNET_PACKAGE=aspnetcore-runtime-10.0
+  dotnet_ok() { has_aspnet10; }
+else
+  DOTNET_PACKAGE=dotnet-sdk-10.0
+  dotnet_ok() { has_dotnet10; }
+fi
+
+# Lädt little-sister.tar.gz eines Release nach $1 und prüft die Prüfsumme.
+# Ohne Token über die öffentlichen Download-Adressen, mit Token über die GitHub-API (privates Repository).
+download_release() {
+  local target="$1" file
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    local base="https://github.com/$GITHUB_REPO/releases"
+    [[ "$RELEASE" == latest ]] && base+="/latest/download" || base+="/download/$RELEASE"
+    for file in little-sister.tar.gz little-sister.tar.gz.sha256; do
+      curl -fL --progress-bar -o "$target/$file" "$base/$file" \
+        || fail "Download von $base/$file fehlgeschlagen (Repository privat? Dann GITHUB_TOKEN setzen)"
+    done
+  else
+    local api="https://api.github.com/repos/$GITHUB_REPO/releases" release
+    command -v python3 >/dev/null || fail "python3 fehlt (sudo apt install python3)"
+    [[ "$RELEASE" == latest ]] && api+="/latest" || api+="/tags/$RELEASE"
+    release="$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$api")" \
+      || fail "Release $RELEASE nicht gefunden (Token gültig und mit Lesezugriff auf Contents?)"
+    for file in little-sister.tar.gz little-sister.tar.gz.sha256; do
+      local url
+      url="$(python3 -c 'import json,sys; r=json.load(sys.stdin); print(next(a["url"] for a in r["assets"] if a["name"]==sys.argv[1]))' "$file" <<<"$release")" \
+        || fail "Im Release fehlt $file"
+      curl -fL --progress-bar -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/octet-stream" -o "$target/$file" "$url" \
+        || fail "Download von $file fehlgeschlagen"
+    done
+  fi
+  (cd "$target" && sha256sum -c --quiet little-sister.tar.gz.sha256) || fail "Prüfsumme stimmt nicht, Download beschädigt"
+}
 node_ok() {
   command -v node >/dev/null &&
     node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)'
@@ -74,8 +126,8 @@ node_ok() {
 MISSING=()
 command -v curl >/dev/null || MISSING+=(curl)
 command -v ffmpeg >/dev/null || MISSING+=(ffmpeg)
-has_dotnet10 || MISSING+=(dotnet-sdk-10.0)
-node_ok || MISSING+=("nodejs (Version 24 über die Paketquelle von NodeSource)")
+dotnet_ok || MISSING+=("$DOTNET_PACKAGE")
+[[ -z "$RELEASE" ]] && ! node_ok && MISSING+=("nodejs (Version 24 über die Paketquelle von NodeSource)")
 
 if (( ${#MISSING[@]} > 0 )); then
   echo "Es fehlen:"
@@ -86,28 +138,28 @@ if (( ${#MISSING[@]} > 0 )); then
   APT_PACKAGES=()
   command -v curl >/dev/null || APT_PACKAGES+=(curl)
   command -v ffmpeg >/dev/null || APT_PACKAGES+=(ffmpeg)
-  if ! has_dotnet10; then
+  if ! dotnet_ok; then
     # Ältere Ubuntu-Versionen führen .NET 10 nur im Backports-PPA
-    if ! apt-cache show dotnet-sdk-10.0 >/dev/null 2>&1; then
+    if ! apt-cache show "$DOTNET_PACKAGE" >/dev/null 2>&1; then
       ask ".NET 10 ist in den Ubuntu-Paketquellen nicht enthalten. Paketquelle ppa:dotnet/backports hinzufügen?" \
-        || fail ".NET 10 SDK fehlt"
+        || fail ".NET 10 fehlt"
       sudo apt-get install -y software-properties-common
       sudo add-apt-repository -y ppa:dotnet/backports
     fi
-    APT_PACKAGES+=(dotnet-sdk-10.0)
+    APT_PACKAGES+=("$DOTNET_PACKAGE")
   fi
   (( ${#APT_PACKAGES[@]} > 0 )) && sudo apt-get install -y "${APT_PACKAGES[@]}"
 
-  if ! node_ok; then
+  if [[ -z "$RELEASE" ]] && ! node_ok; then
     curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
     sudo apt-get install -y nodejs
   fi
 fi
 
 # Zur Sicherheit erneut prüfen (z. B. ein älteres Node über nvm im PATH vor /usr/bin)
-has_dotnet10 || fail ".NET 10 SDK fehlt (sudo apt install dotnet-sdk-10.0)"
+dotnet_ok || fail ".NET 10 fehlt (sudo apt install $DOTNET_PACKAGE)"
 command -v ffmpeg >/dev/null || fail "ffmpeg fehlt (sudo apt install ffmpeg)"
-node_ok || fail "Node.js fehlt oder ist zu alt ($(node --version 2>/dev/null || echo 'nicht gefunden')), benötigt wird mindestens 22.12"
+[[ -n "$RELEASE" ]] || node_ok || fail "Node.js fehlt oder ist zu alt ($(node --version 2>/dev/null || echo 'nicht gefunden')), benötigt wird mindestens 22.12"
 
 # Port nur bei der Erstinstallation festlegen; bei Updates bleibt der eingestellte (siehe ENV_FILE)
 CHOSEN_PORT=""
@@ -125,17 +177,19 @@ if ! go2rtc -version 2>/dev/null | grep -q "$GO2RTC_VERSION"; then
   rm -f /tmp/go2rtc
 fi
 
-# 3) Weboberfläche und Backend bauen
-echo "Weboberfläche wird gebaut"
-(cd web && npm ci && npm run build)
-echo "Backend wird veröffentlicht"
-VERSION="$(git describe --tags --always 2>/dev/null || echo dev)"
-PUBLISH_DIR="$(mktemp -d)"
-trap 'rm -rf "$PUBLISH_DIR"' EXIT
-dotnet publish src/LittleSister.Api/LittleSister.Api.csproj --configuration Release --output "$PUBLISH_DIR" \
-  -p:InformationalVersion="$VERSION"
-cp -r web/build "$PUBLISH_DIR/wwwroot"
-cp LICENSE THIRD-PARTY-NOTICES "$PUBLISH_DIR/"
+# 3) Paket holen: fertiges Release laden oder aus dem Quellcode bauen
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+if [[ -n "$RELEASE" ]]; then
+  echo "Release $RELEASE wird geladen"
+  download_release "$WORK_DIR"
+else
+  OUT="$WORK_DIR" ./scripts/package.sh
+fi
+tar -xzf "$WORK_DIR/little-sister.tar.gz" -C "$WORK_DIR"
+PUBLISH_DIR="$WORK_DIR/little-sister"
+OLD_VERSION="$(cat "$INSTALL_DIR/app/VERSION" 2>/dev/null || echo "keine")"
+echo "Installiert: $OLD_VERSION, neu: $(cat "$PUBLISH_DIR/VERSION")"
 
 # 4) Dienstbenutzer und Ordner anlegen (Daten bleiben bei Updates erhalten)
 id "$SERVICE_USER" >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
