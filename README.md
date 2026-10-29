@@ -25,9 +25,62 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen
 
 ## Installation auf einem Ubuntu-Server
 
-Little Sister läuft als systemd-Dienst direkt auf dem Server. Das Skript `scripts/install-ubuntu.sh` baut Oberfläche und Backend, installiert go2rtc, legt den Dienstbenutzer `littlesister` an und richtet den Dienst ein. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten.
+Little Sister läuft als systemd-Dienst direkt auf dem Server. Das Skript `install-ubuntu.sh` installiert go2rtc, legt den Dienstbenutzer `littlesister` an und richtet den Dienst ein. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten. Es gibt zwei Wege:
 
-Das Skript braucht .NET 10 SDK, ffmpeg und Node.js ab 22.12 (zum Bauen der Oberfläche). Fehlt davon etwas, listet es die fehlenden Programme auf und installiert sie nach Rückfrage: .NET 10 und ffmpeg per apt (bei älteren Ubuntu-Versionen über `ppa:dotnet/backports`, ebenfalls nach Rückfrage), Node.js 24 über die Paketquelle von NodeSource. Vorher wird nur git zum Herunterladen gebraucht:
+| Weg | Auf dem Server nötig | Wann |
+| --- | --- | --- |
+| **Fertiges Release** (empfohlen) | ASP.NET-Core-Laufzeit 10 und ffmpeg | Normalbetrieb; kein Bauen, kein git |
+| Aus dem Quellcode bauen | .NET 10 SDK, Node.js ab 22.12, ffmpeg, git | Entwicklungsstand ohne Release testen |
+
+Fehlt etwas, listet das Skript es auf und installiert es nach Rückfrage: .NET und ffmpeg per apt (bei älteren Ubuntu-Versionen über `ppa:dotnet/backports`, ebenfalls nach Rückfrage), Node.js 24 über die Paketquelle von NodeSource.
+
+### Fertiges Release installieren
+
+Jeder Versions-Tag (siehe „Fertiges Image von GitHub“) erzeugt ein GitHub-Release mit dem Paket `little-sister.tar.gz` (framework-abhängig, läuft mit der ASP.NET-Core-Laufzeit aus apt) und dem Skript selbst.
+
+```fish
+curl -fsSLO https://github.com/Malte007/Little_Sister/releases/latest/download/install-ubuntu.sh
+bash install-ubuntu.sh --release
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `curl -fsSLO …` | lädt das Installationsskript des neuesten Release in den aktuellen Ordner |
+| `bash install-ubuntu.sh --release` | lädt das neueste Paket, prüft die Prüfsumme, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
+
+Eine bestimmte Version: `bash install-ubuntu.sh --release v0.2.0`. Aktualisieren: dieselben zwei Zeilen erneut; das Skript zeigt die installierte und die neue Version an.
+
+**Solange das Repository privat ist**, verlangt GitHub für Downloads eine Anmeldung. Dann ein Fine-grained-Token mit Lesezugriff auf **Contents** dieses Repositorys mitgeben; das Skript lädt dann über die GitHub-API (braucht `python3`, auf Ubuntu vorhanden):
+
+```fish
+set -x GITHUB_TOKEN github_pat_…
+curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" -o install-ubuntu.sh https://api.github.com/repos/Malte007/Little_Sister/contents/scripts/install-ubuntu.sh
+bash install-ubuntu.sh --release
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `set -x GITHUB_TOKEN …` | merkt sich das Token für diese Terminal-Sitzung (fish) |
+| `curl … contents/scripts/install-ubuntu.sh` | lädt das Skript aus dem privaten Repository |
+| `bash install-ubuntu.sh --release` | wie oben, lädt das Paket mit dem Token |
+
+**Umstieg vom Bauen auf Releases** (z. B. bestehende Installation): einfach wie oben mit `--release` installieren. Danach werden .NET SDK und Node.js nicht mehr gebraucht. Vor dem Entfernen die Laufzeit fest installieren, sonst nimmt apt sie mit:
+
+```fish
+sudo apt install -y aspnetcore-runtime-10.0
+sudo apt remove -y dotnet-sdk-10.0 nodejs
+sudo apt autoremove -y
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `sudo apt install -y aspnetcore-runtime-10.0` | markiert die Laufzeit als ausdrücklich gewünscht, damit sie bleibt |
+| `sudo apt remove -y dotnet-sdk-10.0 nodejs` | entfernt SDK und Node.js |
+| `sudo apt autoremove -y` | räumt nicht mehr benötigte Abhängigkeiten auf |
+
+### Aus dem Quellcode bauen
+
+Vorher wird nur git gebraucht:
 
 ```fish
 sudo apt update
@@ -51,9 +104,25 @@ cd little_sister
 | --- | --- |
 | `git clone …` | lädt das Repository herunter (privat: mit GitHub-Benutzer und Token anmelden) |
 | `cd little_sister` | wechselt in den Projektordner |
-| `./scripts/install-ubuntu.sh` | baut alles, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
+| `./scripts/install-ubuntu.sh` | baut das Paket (`scripts/package.sh`), installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
 
-Bei der Erstinstallation fragt das Skript nach dem Port für Oberfläche und API (Enter = 8080) und prüft, ob er frei ist. Ohne Rückfrage geht es mit `env HTTP_PORT=9000 ./scripts/install-ubuntu.sh`. Bei Updates wird nicht erneut gefragt, der eingestellte Port bleibt.
+Aktualisieren (Quellcode-Weg):
+
+```fish
+cd little_sister
+git pull
+./scripts/install-ubuntu.sh
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `cd little_sister` | wechselt in den Projektordner |
+| `git pull` | holt den neuesten Stand |
+| `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu (bei beiden Wegen gilt: Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert) |
+
+### Nach der Installation (beide Wege)
+
+Bei der Erstinstallation fragt das Skript nach dem Port für Oberfläche und API (Enter = 8080) und prüft, ob er frei ist. Ohne Rückfrage geht es mit `env HTTP_PORT=9000 bash install-ubuntu.sh --release` bzw. `env HTTP_PORT=9000 ./scripts/install-ubuntu.sh`. Bei Updates wird nicht erneut gefragt, der eingestellte Port bleibt.
 
 Port später ändern:
 
@@ -75,20 +144,6 @@ Danach `http://<server>:<port>` öffnen (Standard 8080); der Einrichtungsassiste
 | Datenbank, Schlüssel, Sicherungen | `/var/lib/little-sister` |
 | Einstellungen (Umgebungsvariablen, siehe unten) | `/etc/little-sister/little-sister.env` |
 | Protokoll | `journalctl -u little-sister -f` |
-
-Aktualisieren:
-
-```fish
-cd little_sister
-git pull
-./scripts/install-ubuntu.sh
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `cd little_sister` | wechselt in den Projektordner |
-| `git pull` | holt den neuesten Stand |
-| `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu; Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert |
 
 Ist eine Firewall (ufw) aktiv, müssen der Port für die Oberfläche (Standard 8080) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
 
@@ -238,7 +293,7 @@ git push Github v0.1.1
 | Zeile | Wirkung |
 | --- | --- |
 | `git tag v0.1.1` | markiert den aktuellen Commit als Version 0.1.1 |
-| `git push Github v0.1.1` | schickt den Tag zu GitHub (`Github` ist der Name deines Remotes); die CI baut dann das Image |
+| `git push Github v0.1.1` | schickt den Tag zu GitHub (`Github` ist der Name deines Remotes); die CI testet, legt das GitHub-Release mit dem Paket an und baut das Image |
 
 Zu sehen ist es in deinem GitHub-Profil unter **Packages**. Weil das Repository privat ist, ist auch das Paket privat. Ein Server braucht daher eine Anmeldung mit einem Token, bevor er es herunterladen darf.
 
@@ -404,7 +459,7 @@ dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/Little
 
 ## CI (GitHub und Gitea)
 
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Sie läuft nur, wenn ein Versions-Tag `v*` gepusht wird: bauen, testen und danach das Docker-Image veröffentlichen (siehe „Fertiges Image von GitHub“). Commits und Pull Requests lösen sie nicht aus, damit das kostenlose Actions-Kontingent geschont wird; vor jedem Pull Request deshalb lokal `./scripts/build.sh` laufen lassen (siehe „Bauen und Testen wie die CI“). Von Hand startest du Bauen und Testen unter GitHub → Actions → CI → „Run workflow“.
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Sie läuft nur, wenn ein Versions-Tag `v*` gepusht wird: bauen, testen und danach das GitHub-Release mit `little-sister.tar.gz` (`scripts/package.sh`) und das Docker-Image veröffentlichen (siehe „Fertiges Image von GitHub“). Commits und Pull Requests lösen sie nicht aus, damit das kostenlose Actions-Kontingent geschont wird; vor jedem Pull Request deshalb lokal `./scripts/build.sh` laufen lassen (siehe „Bauen und Testen wie die CI“). Von Hand startest du Bauen und Testen unter GitHub → Actions → CI → „Run workflow“.
 
 Für Gitea unter *Repository → Einstellungen → Actions*:
 

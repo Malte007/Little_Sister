@@ -9,7 +9,7 @@
 #   REGISTRY_USERNAME, REGISTRY_PASSWORD
 name: CI
 
-# Läuft nur für Versions-Tags (v0.1.1, v0.1.2-test, …): bauen, testen, Docker-Image.
+# Läuft nur für Versions-Tags (v0.1.1, v0.1.2-test, …): bauen, testen, Release-Paket und Docker-Image.
 # Commits und Pull Requests lösen nichts aus, um Actions-Minuten zu sparen;
 # von Hand startbar unter Actions → CI → "Run workflow" (dann nur bauen und testen).
 on:
@@ -71,6 +71,35 @@ jobs:
           go2rtc -version
       - name: Bauen und testen
         run: ./scripts/build.sh
+
+  # Fertiges Paket als GitHub-Release, damit Server nicht selbst bauen (install-ubuntu.sh --release).
+  # Nur auf GitHub; Gitea hat eigene Releases und kein gh.
+  release:
+    needs: build-test
+    if: startsWith(github.ref, 'refs/tags/v') && github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Paket bauen
+        run: VERSION="${GITHUB_REF_NAME#v}" OUT=artifacts ./scripts/package.sh
+      - name: Release anlegen und Paket anhängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Tags mit Zusatz wie -test werden Vorabversionen und zählen nicht als "neuestes" Release
+          PRERELEASE=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then PRERELEASE=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" \
+            artifacts/little-sister.tar.gz artifacts/little-sister.tar.gz.sha256 artifacts/install-ubuntu.sh \
+            --title "Little Sister $GITHUB_REF_NAME" --generate-notes "${PRERELEASE[@]}"
 
   docker:
     needs: build-test
