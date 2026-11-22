@@ -19,20 +19,20 @@ Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, live anse
 - **Wiedergabe**: Zeitleiste je Tag mit Vorschaubildern und Bewegungsmarkern, 1×–8×, bis zu neun Kameras synchron, Export eines Zeitraums als MP4.
 - **Benutzer** mit Rollen Admin/Betrachter, Login per Cookie (Web) oder Token (Apps).
 
-Technik: ASP.NET Core (.NET 10) mit EF Core und SQLite, SvelteKit + TypeScript als statische Single-Page-App, go2rtc und ffmpeg als eigene Prozesse. Betrieb als systemd-Dienst auf einem Ubuntu-Server.
+Technik: ASP.NET Core (.NET 10) mit EF Core und SQLite, SvelteKit + TypeScript als statische Single-Page-App, go2rtc und ffmpeg als eigene Prozesse. Betrieb als systemd-Dienst auf einem Ubuntu-Server oder als Docker-Container (z. B. Unraid).
 
-## Installation auf einem Ubuntu-Server
+## Installation
 
-Das Skript `install-ubuntu.sh` installiert Little Sister nach `/opt/little-sister`, bringt go2rtc mit, legt den Dienstbenutzer `littlesister` an und richtet den systemd-Dienst ein. Fehlende Pakete (.NET, ffmpeg, Node.js) listet es auf und installiert sie nach Rückfrage. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten, Datenbank-Migrationen laufen beim Start automatisch (vorher wird gesichert).
+Es gibt zwei Wege. Beide richten nach dem Start einen Einrichtungsassistenten unter `http://<server>:8080` ein (Admin-Konto, Aufnahmeordner, Sprache, Zeitzone).
 
-| Weg | Auf dem Server nötig | Wann |
-| --- | --- | --- |
-| **Fertiges Release** (empfohlen) | ASP.NET-Core-Laufzeit 10, ffmpeg | Normalbetrieb, kein Bauen |
-| Aus dem Quellcode bauen | .NET 10 SDK, Node.js ab 22.12, ffmpeg, git | Entwicklungsstand ohne Release testen |
+| Weg | Geeignet für |
+| --- | --- |
+| [Ubuntu-Server](#ubuntu-server) | eigener Server oder VM; Little Sister läuft als systemd-Dienst |
+| [Docker auf Unraid](#docker-auf-unraid) | Unraid oder ein anderer Docker-Host; fertiges Image `ghcr.io/malte007/little_sister` |
 
-### Fertiges Release
+### Ubuntu-Server
 
-Jeder Versions-Tag erzeugt ein GitHub-Release mit `little-sister.tar.gz` und dem Installationsskript (siehe [Version veröffentlichen](#version-veröffentlichen)).
+**1. Installieren** (auf dem Server, als normaler Benutzer mit sudo-Recht):
 
 ```fish
 curl -fsSLO https://github.com/Malte007/Little_Sister/releases/latest/download/install-ubuntu.sh
@@ -42,54 +42,128 @@ bash install-ubuntu.sh --release
 | Zeile | Wirkung |
 | --- | --- |
 | `curl -fsSLO …` | lädt das Installationsskript des neuesten Release |
-| `bash install-ubuntu.sh --release` | lädt das Paket, prüft die Prüfsumme, installiert und startet den Dienst (fragt nach dem sudo-Passwort) |
+| `bash install-ubuntu.sh --release` | installiert fehlende Pakete (ASP.NET-Core-Laufzeit, ffmpeg) nach Rückfrage, lädt Little Sister samt go2rtc, richtet den Dienst ein und startet ihn |
 
-Bestimmte Version: `bash install-ubuntu.sh --release v0.2.0`. Aktualisieren: dieselben zwei Zeilen erneut.
+Das Skript fragt einmal nach dem Port (Enter = 8080).
 
-**Solange das Repository privat ist**, braucht der Download ein Fine-grained-Token mit Lesezugriff auf **Contents**:
+**2. Einrichten:** `http://<server>:8080` im Browser öffnen und den Assistenten durchklicken. Den vorgeschlagenen Aufnahmeordner `/srv/little-sister/recordings` übernehmen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`); liegt er auf einer Netzfreigabe oder eigenen Platte, [diesen Abschnitt](#aufnahmeordner-auf-netzfreigabe-oder-eigener-platte) lesen.
 
-```fish
-set -x GITHUB_TOKEN github_pat_…
-curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" -o install-ubuntu.sh https://api.github.com/repos/Malte007/Little_Sister/contents/scripts/install-ubuntu.sh
-bash install-ubuntu.sh --release
-```
+**3. Firewall** (nur wenn ufw aktiv ist): `sudo ufw allow 8080/tcp` und `sudo ufw allow 8555` (WebRTC für die Live-Ansicht).
 
-| Zeile | Wirkung |
-| --- | --- |
-| `set -x GITHUB_TOKEN …` | merkt sich das Token für diese Terminal-Sitzung |
-| `curl … contents/scripts/install-ubuntu.sh` | lädt das Skript über die GitHub-API aus dem privaten Repository |
-| `bash install-ubuntu.sh --release` | lädt das Paket mit dem Token (braucht `python3`, auf Ubuntu vorhanden) |
-
-Wer vom Quellcode-Weg auf Releases umsteigt, kann danach SDK und Node.js entfernen. Vorher `sudo apt install -y aspnetcore-runtime-10.0` ausführen, damit apt die Laufzeit nicht mit entfernt.
-
-### Aus dem Quellcode bauen
-
-```fish
-git clone https://github.com/malte007/little_sister.git
-cd little_sister
-./scripts/install-ubuntu.sh
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `git clone …` | lädt das Repository herunter (privat: mit GitHub-Benutzer und Token anmelden) |
-| `cd little_sister` | wechselt in den Projektordner |
-| `./scripts/install-ubuntu.sh` | baut das Paket (`scripts/package.sh`), installiert und startet den Dienst |
-
-Aktualisieren: im Projektordner `git pull` und danach erneut `./scripts/install-ubuntu.sh`.
-
-### Nach der Installation
-
-Bei der Erstinstallation fragt das Skript nach dem Port (Enter = 8080); ohne Rückfrage geht es mit `env HTTP_PORT=9000 bash install-ubuntu.sh --release`. Danach `http://<server>:<port>` öffnen, der Einrichtungsassistent startet automatisch. Vorgeschlagener Aufnahmeordner ist `/srv/little-sister/recordings`; ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`). Liegt er auf einer Netzfreigabe oder eigenen Platte, unbedingt [diesen Abschnitt](#aufnahmeordner-auf-netzfreigabe-oder-eigener-platte) lesen.
+**Aktualisieren:** dieselben zwei Zeilen wie in Schritt 1 erneut ausführen. Datenbank, Aufnahmen und Einstellungen bleiben erhalten; die Datenbank wird vor Änderungen automatisch gesichert.
 
 | Was | Wo |
 | --- | --- |
 | Programm | `/opt/little-sister/app` |
 | Datenbank, Schlüssel, Sicherungen | `/var/lib/little-sister` |
-| Einstellungen (siehe [Konfiguration](#konfiguration)) | `/etc/little-sister/little-sister.env`, danach `sudo systemctl restart little-sister` |
+| Einstellungen | `/etc/little-sister/little-sister.env` |
 | Protokoll | `journalctl -u little-sister -f` |
 
-Port später ändern: in der Einstellungsdatei `ASPNETCORE_HTTP_PORTS` setzen und den Dienst neu starten. Mit aktiver Firewall (ufw) müssen der Oberflächen-Port und 8555 TCP/UDP (WebRTC) frei sein: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
+<details>
+<summary>Sonderfälle: privates Repository, bestimmte Version, aus dem Quellcode bauen</summary>
+
+- **Privates Repository:** GitHub verlangt dann für den Download eine Anmeldung. Ein Fine-grained-Token mit Lesezugriff auf **Contents** anlegen und so installieren:
+
+  ```fish
+  set -x GITHUB_TOKEN github_pat_…
+  curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" -o install-ubuntu.sh https://api.github.com/repos/Malte007/Little_Sister/contents/scripts/install-ubuntu.sh
+  bash install-ubuntu.sh --release
+  ```
+
+  | Zeile | Wirkung |
+  | --- | --- |
+  | `set -x GITHUB_TOKEN …` | merkt sich das Token für diese Terminal-Sitzung; das Skript lädt damit das Paket |
+  | `curl … contents/scripts/install-ubuntu.sh` | lädt das Skript über die GitHub-API |
+  | `bash install-ubuntu.sh --release` | installiert wie oben |
+
+- **Bestimmte Version:** `bash install-ubuntu.sh --release v0.9.0`.
+- **Aus dem Quellcode** (Entwicklungsstand ohne Release, braucht .NET 10 SDK, Node.js 24 und git): Repository klonen und darin `./scripts/install-ubuntu.sh` ohne `--release` ausführen.
+
+</details>
+
+### Docker auf Unraid
+
+Das Image wird bei jedem Versions-Tag von GitHub gebaut: `ghcr.io/malte007/little_sister:latest` (neueste Version) bzw. `…:0.9.0` (genau diese Version).
+
+**0. Einmalig: Image öffentlich machen.** Das Image-Paket hat eine eigene Sichtbarkeit, die nicht automatisch der des Repositorys folgt. Auf GitHub: **Profil → Packages → little_sister → Package settings → Change visibility → Public** ([direkt dorthin](https://github.com/users/Malte007/packages/container/little_sister/settings)). Danach kann Unraid das Image ohne Anmeldung laden.
+
+<details>
+<summary>Paket privat lassen? Dann Unraid bei ghcr.io anmelden</summary>
+
+Auf GitHub ein **Token (classic)** nur mit dem Recht `read:packages` anlegen (**Settings → Developer settings → Personal access tokens → Tokens (classic)**). Dann im Unraid-Terminal (**>_** oben rechts, dort läuft bash):
+
+```bash
+docker login ghcr.io -u malte007
+mkdir -p /boot/config/docker-auth && cp /root/.docker/config.json /boot/config/docker-auth/
+echo 'mkdir -p /root/.docker && cp /boot/config/docker-auth/config.json /root/.docker/' >> /boot/config/go
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `docker login ghcr.io -u malte007` | meldet Docker bei ghcr.io an; als Passwort das Token einfügen |
+| `mkdir … && cp …` | sichert die Anmeldung auf dem USB-Stick (`/root` ist nach einem Neustart leer) |
+| `echo … >> /boot/config/go` | stellt die Anmeldung bei jedem Start von Unraid wieder her |
+
+</details>
+
+**1. Container anlegen.** In Unraid **Docker → Container hinzufügen** (Add Container), Vorlage leer lassen, oben rechts **Erweiterte Ansicht** einschalten und eintragen:
+
+| Feld | Wert |
+| --- | --- |
+| Name | `little-sister` |
+| Repository | `ghcr.io/malte007/little_sister:latest` |
+| Netzwerktyp | `Host` |
+| WebUI | `http://[IP]:8080/` |
+| Zusätzliche Parameter (Extra Parameters) | `--user 99:100` |
+
+Dann über **Weiteren Pfad, Port, Variable … hinzufügen** (Add another Path, Port, Variable…) zwei Pfade und eine Variable anlegen:
+
+| Typ | Container-Pfad / Schlüssel | Wert auf Unraid |
+| --- | --- | --- |
+| Pfad | `/data` | `/mnt/user/appdata/little-sister` |
+| Pfad | `/recordings` | z. B. `/mnt/user/aufnahmen/little-sister` |
+| Variable | `TZ` | `Europe/Berlin` |
+
+Warum so:
+
+- **Host-Netzwerk**, damit die ONVIF-Kamerasuche (Multicast) und WebRTC ohne weitere Einstellungen funktionieren. Little Sister belegt damit direkt die Ports **8080** (Oberfläche), **8555 TCP/UDP** (WebRTC) und **1984** (go2rtc, nur intern).
+- **`--user 99:100`** lässt den Container als Unraid-Standardbenutzer `nobody:users` laufen; sonst fehlen Schreibrechte auf den Shares.
+- **Aufnahme-Share** am besten ohne Cache anlegen, sonst verschiebt der Mover die Aufnahmen ständig.
+
+**2. Starten und einrichten.** **Anwenden** (Apply) klicken; Unraid lädt das Image und startet den Container. Danach im Docker-Reiter beim Container **WebUI** öffnen (oder `http://<unraid-ip>:8080`) und den Assistenten durchklicken. Als Aufnahmeordner `/recordings` stehen lassen.
+
+**3. Aktualisieren.** Nach einer neuen Version auf Unraid **Docker → Nach Updates suchen** (Check for Updates) und beim Container **Update anwenden**. Datenbank-Migrationen laufen beim Start, vorher wird die Datenbank nach `/data/backups` gesichert.
+
+Andere Docker-Hosts: Die `docker-compose.yml` im Repository enthält dieselben Einstellungen; im Ordner mit der Datei `docker compose up -d` ausführen.
+
+### Port nachträglich ändern
+
+Standard ist **8080**. Belegt schon ein anderes Programm den Port, oder soll Little Sister unter einem anderen Port laufen:
+
+**Ubuntu-Server**
+
+```fish
+sudo sed -i 's/^ASPNETCORE_HTTP_PORTS=.*/ASPNETCORE_HTTP_PORTS=9000/' /etc/little-sister/little-sister.env
+sudo systemctl restart little-sister
+sudo ufw allow 9000/tcp
+```
+
+| Zeile | Wirkung |
+| --- | --- |
+| `sudo sed -i …` | setzt in der Einstellungsdatei den Port auf 9000 (Zahl nach Wunsch ändern); alternativ die Datei mit `sudo nano /etc/little-sister/little-sister.env` von Hand bearbeiten |
+| `sudo systemctl restart little-sister` | startet den Dienst mit dem neuen Port neu |
+| `sudo ufw allow 9000/tcp` | gibt den neuen Port in der Firewall frei (nur nötig, wenn ufw aktiv ist) |
+
+Danach ist Little Sister unter `http://<server>:9000` erreichbar. Spätere Updates behalten den Port.
+
+**Docker auf Unraid**
+
+1. Im Docker-Reiter auf das Symbol des Containers klicken → **Bearbeiten** (Edit).
+2. **Weiteren Pfad, Port, Variable … hinzufügen** → Typ **Variable**, Schlüssel `ASPNETCORE_HTTP_PORTS`, Wert `9000`.
+3. Das Feld **WebUI** auf `http://[IP]:9000/` ändern.
+4. **Anwenden** klicken; der Container startet mit dem neuen Port neu.
+
+Mit Host-Netzwerk gibt es keine Portzuordnung, deshalb wird der Port über die Variable geändert. Läuft auf Unraid schon ein anderes go2rtc oder Frigate, lassen sich auch die anderen Ports so umlegen: `LittleSister__Live__WebRtcPort` (statt 8555) und `LittleSister__Live__ApiPort` (statt 1984).
 
 ## Betrieb
 
@@ -164,7 +238,7 @@ sudo -u littlesister touch /srv/little-sister/recordings/.little-sister
 
 ### Konfiguration
 
-Einstellungen per Umgebungsvariable (doppelter Unterstrich trennt Ebenen) in `/etc/little-sister/little-sister.env`:
+Einstellungen per Umgebungsvariable (doppelter Unterstrich trennt Ebenen): auf dem Ubuntu-Server in `/etc/little-sister/little-sister.env` (danach `sudo systemctl restart little-sister`), bei Docker als Variable des Containers. Bei Docker sind Daten- und Aufnahmeordner fest `/data` und `/recordings`.
 
 | Variable | Standard | Bedeutung |
 | --- | --- | --- |
@@ -181,42 +255,9 @@ Einstellungen per Umgebungsvariable (doppelter Unterstrich trennt Ebenen) in `/e
 | `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse bei NAT, z. B. `192.168.1.10:8555` |
 | `LittleSister__Events__CallbackUrl` | automatisch | Adresse für ONVIF-Meldungen der Kameras, z. B. `http://192.168.1.10:8080` |
 
-## Entwickeln
-
-Voraussetzungen: .NET 10 SDK, Node.js 24 (mindestens 22.12, npm 11), ffmpeg und [go2rtc 1.9.14](https://github.com/AlexxIT/go2rtc/releases/tag/v1.9.14) im Suchpfad (z. B. `/usr/local/bin/go2rtc`). Unter fish lässt sich Node über [nvm](https://github.com/nvm-sh/nvm) per `bash -c 'source ~/.nvm/nvm.sh && nvm install 24'` installieren und mit `fish_add_path` einbinden.
-
-1. In Rider `LittleSister.slnx` öffnen und die Startkonfiguration **LittleSister.Api: http** starten. Die API läuft auf http://localhost:5080 (auch aus dem LAN, für ONVIF-Meldungen), Daten liegen in `src/LittleSister.Api/data`, go2rtc startet mit.
-2. Oberfläche im Terminal starten:
-
-```fish
-cd web
-npm install
-npm run dev
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `cd web` | wechselt in den Frontend-Ordner |
-| `npm install` | installiert die Frontend-Pakete; nach jedem `git pull`, der `package.json` ändert, wiederholen |
-| `npm run dev` | startet die Oberfläche auf http://localhost:5173 und leitet `/api` an die API weiter |
-
-3. http://localhost:5173 öffnen und die Einrichtung durchlaufen (Aufnahmeordner z. B. `/home/<du>/little-sister/recordings`). Von vorn beginnen: API stoppen und `src/LittleSister.Api/data` löschen.
-
-Tests laufen in Rider über **Unit Tests → Run All** (Kamera- und Live-Tests brauchen ffmpeg und go2rtc). Vor jedem Pull Request alles wie die CI bauen und testen:
-
-```fish
-./scripts/build.sh
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `./scripts/build.sh` | prüft und baut die Oberfläche, baut die Solution und führt alle Tests aus |
-
-Neue Datenbank-Migration: `dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/LittleSister.Infrastructure -o Data/Migrations`; sie wird beim nächsten Start angewendet.
-
 ## CI und Version veröffentlichen
 
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions; die Logik steckt in `scripts/`. Um das kostenlose Actions-Kontingent zu schonen, läuft sie **nur bei einem Versions-Tag `v*`** (oder von Hand unter Actions → CI → „Run workflow“), nicht bei Commits und Pull Requests. Sie baut, testet und legt das GitHub-Release mit `little-sister.tar.gz` an. Nebenbei baut sie weiterhin ein Docker-Image (ghcr.io, für die zurückgestellte Docker-Variante, z. B. Unraid; Dockerfile und `docker-compose.yml` bleiben im Repository).
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions; die Logik steckt in `scripts/`. Um das kostenlose Actions-Kontingent zu schonen, läuft sie **nur bei einem Versions-Tag `v*`** (oder von Hand unter Actions → CI → „Run workflow“), nicht bei Commits und Pull Requests. Sie baut, testet, legt das GitHub-Release mit `little-sister.tar.gz` an und veröffentlicht das Docker-Image auf ghcr.io. Vor einem Pull Request deshalb lokal `./scripts/build.sh` ausführen (baut und testet alles wie die CI).
 
 ### Version veröffentlichen
 
