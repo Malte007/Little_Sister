@@ -1,42 +1,38 @@
 # Little Sister
 
-Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, Aufnahmen in einem Ringspeicher ablegen und über eine Zeitleiste mit Ereignismarkern abspielen.
+Selbst gehosteter Dienst für Überwachungskameras: Kameras verwalten, live ansehen, Aufnahmen in einem Ringspeicher ablegen und über eine Zeitleiste mit Bewegungsmarkern abspielen.
 
-- Backend: ASP.NET Core (.NET 10), EF Core mit SQLite
-- Frontend: SvelteKit + TypeScript (als statische Single-Page-App vom Backend ausgeliefert)
-- Live-Ansicht: go2rtc (WebRTC, MSE als Rückfall), von Little Sister selbst gestartet
-- Betrieb: Ubuntu-Server als systemd-Dienst, alternativ Docker
-
-## Stand
-
-| Bereich | Status |
+| Live-Ansicht | Aufnahmen mit Zeitleiste |
 | --- | --- |
-| Ersteinrichtung (Admin, Speicherort, Sprache, Zeitzone) | fertig |
-| Login per Cookie (Web) und Token (Apps), Rollen Admin/Betrachter | fertig |
-| Benutzerverwaltung | fertig |
-| Kameras per ONVIF-Suche oder RTSP-Adresse, Zugangsdaten verschlüsselt | fertig |
-| Daueraufnahme (ein ffmpeg-Prozess pro Kamera, Segmente ohne Umwandlung, Neustart bei Ausfall) | fertig |
-| Ringspeicher (Kontingent pro Kamera, maximale Aufbewahrung, globale Freispeichergrenze) | fertig |
-| Live-Ansicht (Kachelraster, Einzelansicht mit voller Auflösung und Ton) | fertig |
-| Kamerastatus live in der Oberfläche (SignalR) | fertig |
-| Zeitleiste und Wiedergabe (Tag wählen, springen, 1×–8×), Export eines Zeitraums als MP4 | fertig |
-| Vorschaubilder auf der Zeitleiste, mehrere Kameras gleichzeitig abspielen | fertig |
-| Aufnahme bei Bewegung (Erkennung im Bild oder per ONVIF, Vor- und Nachlauf, Bewegungen auf der Zeitleiste) | fertig |
+| ![Live-Ansicht mit vier Kameras](docs/screenshots/live.png) | ![Synchrone Wiedergabe zweier Kameras mit Zeitleiste und Bewegungsmarkern](docs/screenshots/aufnahmen.png) |
+| **Kameras** | **Bewegungserkennung mit Erkennungsbereichen** |
+| ![Kameraliste mit Status und Speicher](docs/screenshots/kameras.png) | ![Kamera bearbeiten: Aufnahme bei Bewegung, Erkennungsbereiche](docs/screenshots/bewegung.png) |
+
+<sub>Screenshots mit gezeichneten Demo-Testbildern.</sub>
+
+## Funktionen
+
+- **Kameras** per ONVIF-Suche oder RTSP-Adresse hinzufügen; Zugangsdaten verschlüsselt gespeichert; Konfiguration als JSON exportieren und importieren.
+- **Live-Ansicht** über go2rtc (WebRTC, MSE als Rückfall): Kachelraster mit Substream, Einzelansicht mit voller Auflösung, Ton, Drehung und Vollbild. Kamerastatus live per SignalR.
+- **Aufnahme** dauerhaft oder **bei Bewegung** (eigene Bilderkennung oder ONVIF-Ereignisse, Vor- und Nachlauf, Erkennungsbereiche). Ein ffmpeg-Prozess je Kamera, Segmente ohne Umwandlung, Neustart bei Ausfall.
+- **Ringspeicher** mit Kontingent je Kamera, maximaler Aufbewahrung und globaler Freispeichergrenze.
+- **Wiedergabe**: Zeitleiste je Tag mit Vorschaubildern und Bewegungsmarkern, 1×–8×, bis zu neun Kameras synchron, Export eines Zeitraums als MP4.
+- **Benutzer** mit Rollen Admin/Betrachter, Login per Cookie (Web) oder Token (Apps).
+
+Technik: ASP.NET Core (.NET 10) mit EF Core und SQLite, SvelteKit + TypeScript als statische Single-Page-App, go2rtc und ffmpeg als eigene Prozesse. Betrieb als systemd-Dienst auf einem Ubuntu-Server.
 
 ## Installation auf einem Ubuntu-Server
 
-Little Sister läuft als systemd-Dienst direkt auf dem Server. Das Skript `install-ubuntu.sh` installiert go2rtc, legt den Dienstbenutzer `littlesister` an und richtet den Dienst ein. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten. Es gibt zwei Wege:
+Das Skript `install-ubuntu.sh` installiert Little Sister nach `/opt/little-sister`, bringt go2rtc mit, legt den Dienstbenutzer `littlesister` an und richtet den systemd-Dienst ein. Fehlende Pakete (.NET, ffmpeg, Node.js) listet es auf und installiert sie nach Rückfrage. Für Updates wird es einfach erneut aufgerufen; Datenbank, Aufnahmen und Einstellungen bleiben erhalten, Datenbank-Migrationen laufen beim Start automatisch (vorher wird gesichert).
 
 | Weg | Auf dem Server nötig | Wann |
 | --- | --- | --- |
-| **Fertiges Release** (empfohlen) | ASP.NET-Core-Laufzeit 10 und ffmpeg | Normalbetrieb; kein Bauen, kein git |
+| **Fertiges Release** (empfohlen) | ASP.NET-Core-Laufzeit 10, ffmpeg | Normalbetrieb, kein Bauen |
 | Aus dem Quellcode bauen | .NET 10 SDK, Node.js ab 22.12, ffmpeg, git | Entwicklungsstand ohne Release testen |
 
-Fehlt etwas, listet das Skript es auf und installiert es nach Rückfrage: .NET und ffmpeg per apt (bei älteren Ubuntu-Versionen über `ppa:dotnet/backports`, ebenfalls nach Rückfrage), Node.js 24 über die Paketquelle von NodeSource.
+### Fertiges Release
 
-### Fertiges Release installieren
-
-Jeder Versions-Tag (siehe „Fertiges Image von GitHub“) erzeugt ein GitHub-Release mit dem Paket `little-sister.tar.gz` (framework-abhängig, läuft mit der ASP.NET-Core-Laufzeit aus apt) und dem Skript selbst.
+Jeder Versions-Tag erzeugt ein GitHub-Release mit `little-sister.tar.gz` und dem Installationsskript (siehe [Version veröffentlichen](#version-veröffentlichen)).
 
 ```fish
 curl -fsSLO https://github.com/Malte007/Little_Sister/releases/latest/download/install-ubuntu.sh
@@ -45,12 +41,12 @@ bash install-ubuntu.sh --release
 
 | Zeile | Wirkung |
 | --- | --- |
-| `curl -fsSLO …` | lädt das Installationsskript des neuesten Release in den aktuellen Ordner |
-| `bash install-ubuntu.sh --release` | lädt das neueste Paket, prüft die Prüfsumme, installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
+| `curl -fsSLO …` | lädt das Installationsskript des neuesten Release |
+| `bash install-ubuntu.sh --release` | lädt das Paket, prüft die Prüfsumme, installiert und startet den Dienst (fragt nach dem sudo-Passwort) |
 
-Eine bestimmte Version: `bash install-ubuntu.sh --release v0.2.0`. Aktualisieren: dieselben zwei Zeilen erneut; das Skript zeigt die installierte und die neue Version an.
+Bestimmte Version: `bash install-ubuntu.sh --release v0.2.0`. Aktualisieren: dieselben zwei Zeilen erneut.
 
-**Solange das Repository privat ist**, verlangt GitHub für Downloads eine Anmeldung. Dann ein Fine-grained-Token mit Lesezugriff auf **Contents** dieses Repositorys mitgeben; das Skript lädt dann über die GitHub-API (braucht `python3`, auf Ubuntu vorhanden):
+**Solange das Repository privat ist**, braucht der Download ein Fine-grained-Token mit Lesezugriff auf **Contents**:
 
 ```fish
 set -x GITHUB_TOKEN github_pat_…
@@ -60,39 +56,13 @@ bash install-ubuntu.sh --release
 
 | Zeile | Wirkung |
 | --- | --- |
-| `set -x GITHUB_TOKEN …` | merkt sich das Token für diese Terminal-Sitzung (fish) |
-| `curl … contents/scripts/install-ubuntu.sh` | lädt das Skript aus dem privaten Repository |
-| `bash install-ubuntu.sh --release` | wie oben, lädt das Paket mit dem Token |
+| `set -x GITHUB_TOKEN …` | merkt sich das Token für diese Terminal-Sitzung |
+| `curl … contents/scripts/install-ubuntu.sh` | lädt das Skript über die GitHub-API aus dem privaten Repository |
+| `bash install-ubuntu.sh --release` | lädt das Paket mit dem Token (braucht `python3`, auf Ubuntu vorhanden) |
 
-**Umstieg vom Bauen auf Releases** (z. B. bestehende Installation): einfach wie oben mit `--release` installieren. Danach werden .NET SDK und Node.js nicht mehr gebraucht. Vor dem Entfernen die Laufzeit fest installieren, sonst nimmt apt sie mit:
-
-```fish
-sudo apt install -y aspnetcore-runtime-10.0
-sudo apt remove -y dotnet-sdk-10.0 nodejs
-sudo apt autoremove -y
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `sudo apt install -y aspnetcore-runtime-10.0` | markiert die Laufzeit als ausdrücklich gewünscht, damit sie bleibt |
-| `sudo apt remove -y dotnet-sdk-10.0 nodejs` | entfernt SDK und Node.js |
-| `sudo apt autoremove -y` | räumt nicht mehr benötigte Abhängigkeiten auf |
+Wer vom Quellcode-Weg auf Releases umsteigt, kann danach SDK und Node.js entfernen. Vorher `sudo apt install -y aspnetcore-runtime-10.0` ausführen, damit apt die Laufzeit nicht mit entfernt.
 
 ### Aus dem Quellcode bauen
-
-Vorher wird nur git gebraucht:
-
-```fish
-sudo apt update
-sudo apt install -y git
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `sudo apt update` | lädt die aktuellen Paketlisten |
-| `sudo apt install -y git` | installiert git (auf Ubuntu-Server meist schon vorhanden) |
-
-Projekt holen und installieren:
 
 ```fish
 git clone https://github.com/malte007/little_sister.git
@@ -104,98 +74,59 @@ cd little_sister
 | --- | --- |
 | `git clone …` | lädt das Repository herunter (privat: mit GitHub-Benutzer und Token anmelden) |
 | `cd little_sister` | wechselt in den Projektordner |
-| `./scripts/install-ubuntu.sh` | baut das Paket (`scripts/package.sh`), installiert nach `/opt/little-sister` und startet den Dienst; fragt nach dem sudo-Passwort |
+| `./scripts/install-ubuntu.sh` | baut das Paket (`scripts/package.sh`), installiert und startet den Dienst |
 
-Aktualisieren (Quellcode-Weg):
+Aktualisieren: im Projektordner `git pull` und danach erneut `./scripts/install-ubuntu.sh`.
 
-```fish
-cd little_sister
-git pull
-./scripts/install-ubuntu.sh
-```
+### Nach der Installation
 
-| Zeile | Wirkung |
-| --- | --- |
-| `cd little_sister` | wechselt in den Projektordner |
-| `git pull` | holt den neuesten Stand |
-| `./scripts/install-ubuntu.sh` | baut neu und startet den Dienst neu (bei beiden Wegen gilt: Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank gesichert) |
-
-### Nach der Installation (beide Wege)
-
-Bei der Erstinstallation fragt das Skript nach dem Port für Oberfläche und API (Enter = 8080) und prüft, ob er frei ist. Ohne Rückfrage geht es mit `env HTTP_PORT=9000 bash install-ubuntu.sh --release` bzw. `env HTTP_PORT=9000 ./scripts/install-ubuntu.sh`. Bei Updates wird nicht erneut gefragt, der eingestellte Port bleibt.
-
-Port später ändern:
-
-```fish
-sudo nano /etc/little-sister/little-sister.env
-sudo systemctl restart little-sister
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `sudo nano …` | öffnet die Einstellungen; dort `ASPNETCORE_HTTP_PORTS=8080` auf den neuen Port setzen |
-| `sudo systemctl restart little-sister` | startet den Dienst mit dem neuen Port neu |
-
-Danach `http://<server>:<port>` öffnen (Standard 8080); der Einrichtungsassistent startet automatisch. Als Aufnahmeordner ist `/srv/little-sister/recordings` vorgeschlagen. Ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`). Liegt der Ordner auf einer Netzfreigabe oder eigenen Platte, unbedingt [Aufnahmeordner auf Netzfreigabe oder eigener Platte](#aufnahmeordner-auf-netzfreigabe-oder-eigener-platte) lesen.
+Bei der Erstinstallation fragt das Skript nach dem Port (Enter = 8080); ohne Rückfrage geht es mit `env HTTP_PORT=9000 bash install-ubuntu.sh --release`. Danach `http://<server>:<port>` öffnen, der Einrichtungsassistent startet automatisch. Vorgeschlagener Aufnahmeordner ist `/srv/little-sister/recordings`; ein anderer Ordner muss dem Benutzer `littlesister` gehören (`sudo chown -R littlesister: <ordner>`). Liegt er auf einer Netzfreigabe oder eigenen Platte, unbedingt [diesen Abschnitt](#aufnahmeordner-auf-netzfreigabe-oder-eigener-platte) lesen.
 
 | Was | Wo |
 | --- | --- |
 | Programm | `/opt/little-sister/app` |
 | Datenbank, Schlüssel, Sicherungen | `/var/lib/little-sister` |
-| Einstellungen (Umgebungsvariablen, siehe unten) | `/etc/little-sister/little-sister.env` |
+| Einstellungen (siehe [Konfiguration](#konfiguration)) | `/etc/little-sister/little-sister.env`, danach `sudo systemctl restart little-sister` |
 | Protokoll | `journalctl -u little-sister -f` |
 
-Ist eine Firewall (ufw) aktiv, müssen der Port für die Oberfläche (Standard 8080) und 8555 TCP/UDP (WebRTC) freigegeben werden: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
+Port später ändern: in der Einstellungsdatei `ASPNETCORE_HTTP_PORTS` setzen und den Dienst neu starten. Mit aktiver Firewall (ufw) müssen der Oberflächen-Port und 8555 TCP/UDP (WebRTC) frei sein: `sudo ufw allow 8080/tcp`, `sudo ufw allow 8555`.
 
 ## Betrieb
 
 ### Live-Ansicht
 
-Little Sister startet go2rtc selbst (im Docker-Image enthalten) und hält dessen Streams mit den Kameras in Sync. Die go2rtc-API lauscht nur auf `127.0.0.1`; der Browser bekommt Bild und Standbilder ausschließlich über die angemeldete Little-Sister-API. Die Kacheln nutzen den Substream, die Einzelansicht wahlweise den Hauptstream.
-
-Für WebRTC (Latenz unter einer Sekunde) muss Port **8555 (TCP und UDP)** vom Browser aus erreichbar sein. Ist er es nicht, fällt der Player automatisch auf MSE über die normale Verbindung zurück (etwas mehr Verzögerung). Fehlt go2rtc, ist nur die Live-Ansicht aus, die Aufnahme läuft weiter.
+Little Sister startet go2rtc selbst und hält dessen Streams mit den Kameras in Sync. Die go2rtc-API lauscht nur auf `127.0.0.1`; der Browser bekommt Bilder ausschließlich über die angemeldete Little-Sister-API. Für WebRTC (Latenz unter einer Sekunde) muss Port **8555 TCP und UDP** erreichbar sein, sonst fällt der Player auf MSE zurück (etwas mehr Verzögerung). Fehlt go2rtc, ist nur die Live-Ansicht aus; die Aufnahme läuft weiter.
 
 ### Wiedergabe und Export
 
-Unter **Aufnahmen** zeigt die Zeitleiste pro Kamera und Tag, wann aufgenommen wurde. Ein Klick springt an die Stelle, Lücken werden beim Abspielen übersprungen. Abgespielt wird per HLS direkt aus den gespeicherten Segmenten, ohne Umwandlung und ohne CPU-Last auf dem Server. Der Export setzt den markierten Zeitraum ebenfalls ohne Umwandlung zu einer MP4-Datei zusammen; er beginnt am Schlüsselbild vor dem gewählten Anfang. Tagesgrenzen und Uhrzeiten richten sich nach der Zeitzone der Installation.
+Unter **Aufnahmen** zeigt die Zeitleiste je Kamera und Tag, wann aufgenommen wurde; Lücken werden beim Abspielen übersprungen. Abgespielt wird per HLS direkt aus den gespeicherten Segmenten, ohne Umwandlung und ohne CPU-Last auf dem Server. Der Export setzt den markierten Zeitraum ebenfalls ohne Umwandlung zu einer MP4-Datei zusammen (ab dem Schlüsselbild vor dem Anfang, eine Datei je Kamera). Uhrzeiten richten sich nach der Zeitzone der Installation.
 
-Über **+ Kamera hinzufügen** laufen bis zu neun Kameras synchron über dieselbe Zeitleiste, je Kamera mit einer eigenen Spur. Über die Auswahl im Kachelkopf lässt sich eine Kamera gegen eine andere tauschen, ✕ entfernt sie. Hat eine Kamera zur aktuellen Uhrzeit keine Aufnahme, pausiert sie, bis wieder etwas aufgenommen wurde. Der Export erzeugt je Kamera eine eigene Datei. Jede Kamera dekodiert ihr eigenes Video im Browser; bei vielen 4K-Kameras kann ein schwächerer Rechner an seine Grenzen kommen.
-
-Fährt die Maus über die Zeitleiste, erscheint ein Vorschaubild. Dafür legt Little Sister zu jedem Segment einen Bildstreifen mit einem Bild alle 10 Sekunden ab. Der Streifen entsteht nach der Aufnahme im Hintergrund aus den Schlüsselbildern, also mit wenig Rechenzeit. Für ältere Aufnahmen entsteht er beim ersten Überfahren. Wer die Rechenzeit sparen will, schaltet die Vorschaubilder unter **Kameras → Speicher** aus; dann entstehen keine neuen Bilder, und die Zeitleiste zeigt keine Vorschau.
+- **Mehrere Kameras:** Über **+ Kamera hinzufügen** laufen bis zu neun Kameras synchron über dieselbe Zeitleiste. Hat eine Kamera zur aktuellen Zeit keine Aufnahme, pausiert sie. Jede Kamera dekodiert im Browser; viele 4K-Kameras können einen schwachen Rechner überfordern.
+- **Vorschaubilder:** Beim Überfahren der Zeitleiste erscheint ein Vorschaubild. Little Sister legt dafür je Segment einen Bildstreifen an (ein Bild alle 10 s, aus den Schlüsselbildern, wenig Rechenzeit; für alte Aufnahmen beim ersten Überfahren). Abschaltbar unter **Kameras → Speicher**.
 
 ### Aufnahme bei Bewegung
 
-Je Kamera lässt sich unter **Kameras → Bearbeiten** die Aufnahmeart wählen: **Dauerhaft**, **Bei Bewegung** oder **Aus**. Bei **Bei Bewegung** gibt es zwei Arten, Bewegung zu erkennen:
+Je Kamera unter **Kameras → Bearbeiten**: Aufnahmeart **Dauerhaft**, **Bei Bewegung** oder **Aus**. Bewegung wird auf zwei Arten erkannt:
 
 | Erkennung | Wie | Voraussetzung |
 | --- | --- | --- |
-| **Im Bild** (Standard) | Ein eigener ffmpeg-Prozess dekodiert den Substream und liefert 5 Bilder/s, verkleinert auf 80×60 Graustufen. Little Sister zählt die Pixel, die deutlich vom gleitenden Hintergrund abweichen. Ab einem Mindestanteil (Regler **Empfindlichkeit**: 1 = 10 % des Bildes, 50 ≈ 1,4 %, 100 = 0,2 %) beginnt die Bewegung, nach 3 s Ruhe endet sie. Ändert sich fast das ganze Bild auf einmal (Licht, Nachtsicht), zählt das nicht. | jede Kamera; Substream empfohlen. CPU-Last gemessen: etwa 3 % eines Kerns bei 640×360, etwa 6 % bei 1280×720 (ohne Substream wird der Hauptstream dekodiert, das kostet mehr) |
-| **Von der Kamera (ONVIF)** | Die Kamera erkennt selbst und meldet per ONVIF-Ereignis. | ONVIF-Adresse (wird bei der Suche eingetragen; `http://IP:Port` genügt) und eingeschaltete Erkennung in der Kamera. Viele günstige Kameras setzen das nur teilweise um. |
+| **Im Bild** (Standard) | ffmpeg dekodiert den Substream (5 Bilder/s, 80×60 Graustufen); Little Sister zählt Pixel, die deutlich vom gleitenden Hintergrund abweichen. Regler **Empfindlichkeit**: 1 = 10 % des Bildes, 50 ≈ 1,4 %, 100 = 0,2 %. Nach 3 s Ruhe endet die Bewegung; ändert sich fast das ganze Bild (Licht, Nachtsicht), zählt das nicht. | jede Kamera; Substream empfohlen. CPU: ca. 3 % eines Kerns bei 640×360, 6 % bei 1280×720 |
+| **Von der Kamera (ONVIF)** | Die Kamera meldet Bewegung per ONVIF-Ereignis. | ONVIF-Adresse (`http://IP:Port`) und eingeschaltete Erkennung in der Kamera; viele günstige Kameras können das nur teilweise |
 
-Im erweiterten Modus (**Nur in bestimmten Bereichen erkennen**) wird das Bild in 16×12 Felder geteilt. Auf dem Standbild der Kamera malst du per Klicken und Ziehen die Felder an, in denen Bewegung zählt; alles andere (Straße, Baum, Nachbargrundstück) wird ignoriert. Die Empfindlichkeit bezieht sich dann auf die überwachte Fläche.
+Mit **Nur in bestimmten Bereichen erkennen** wird das Standbild in 16×12 Felder geteilt; per Klicken und Ziehen markierte Felder werden überwacht, der Rest (Straße, Baum, Nachbargrundstück) ignoriert.
 
-| Vorlauf | Was passiert |
+| Vorlauf | Verhalten |
 | --- | --- |
-| 0 Sekunden | ffmpeg startet erst mit der Bewegungsmeldung und hört nach dem Nachlauf wieder auf. Ohne Bewegung läuft nichts. Bis die Verbindung steht, vergehen etwa 1 bis 3 Sekunden; dieser Anfang fehlt in der Aufnahme. |
-| mehr als 0 | Der Stream läuft dauernd in einen kurzen Zwischenspeicher (`.buffer`), der laufend gelöscht wird. Kommt eine Bewegung, wird das Stück davor übernommen. Gespeichert wird in Stücken etwa so lang wie der Vorlauf, daher kann ein paar Sekunden mehr übrig bleiben. |
+| 0 s | ffmpeg startet erst mit der Bewegung und endet nach dem Nachlauf. Die ersten 1–3 s bis zum Verbindungsaufbau fehlen. |
+| > 0 s | Der Stream läuft dauernd in einen kurzen Zwischenspeicher (`.buffer`); bei Bewegung wird das Stück davor übernommen. |
 
-Der Nachlauf (0 bis 600 Sekunden) bestimmt, wie lange nach dem Ende der Bewegung weiter aufgenommen wird. Bewegungen erscheinen auf der Zeitleiste als gelbe Balken über der Aufnahme; mit **‹ Bewegung** und **Bewegung ›** springt die Wiedergabe zur vorherigen oder nächsten. Im Kamerastatus zeigt **Wartet auf Bewegung**, dass gerade nichts gespeichert wird, und eine gelbe Marke **Bewegung**, dass die Kamera gerade Bewegung meldet. Bei Daueraufnahme werden Bewegungen nur bei Erkennung per ONVIF auf der Zeitleiste angezeigt; die Erkennung im Bild läuft nur im Modus „Bei Bewegung“, um Rechenzeit zu sparen.
+Der Nachlauf (0–600 s) bestimmt, wie lange nach der Bewegung weiter aufgenommen wird. Bewegungen erscheinen als gelbe Balken auf der Zeitleiste, **‹ Bewegung** und **Bewegung ›** springen dorthin. Im Kamerastatus bedeutet **Wartet auf Bewegung**, dass gerade nichts gespeichert wird. Bei Daueraufnahme werden Bewegungen nur per ONVIF markiert (die Bilderkennung läuft nur im Modus „Bei Bewegung“).
 
-Bei Erkennung per ONVIF holt Little Sister die Meldungen bevorzugt selbst bei der Kamera ab (PullPoint). Kann eine Kamera das nicht (Fehler „ActionNotSupported“), schickt sie ihre Meldungen per HTTP an Little Sister (WS-BaseNotification) an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server erreichen: Der HTTP-Port (8080, in der Entwicklung 5080) darf von der Firewall nicht gesperrt sein, und Little Sister darf nicht nur auf `localhost` lauschen. Die Serveradresse ermittelt Little Sister selbst. Hinter NAT oder in Docker mit Bridge-Netz lässt sie sich mit `LittleSister__Events__CallbackUrl` vorgeben.
+ONVIF-Meldungen holt Little Sister bevorzugt selbst ab (PullPoint). Kann die Kamera das nicht („ActionNotSupported“), schickt sie sie per HTTP an `http://<server>:<port>/api/onvif/events/<schlüssel>`. Dafür muss die Kamera den Server über den HTTP-Port erreichen; hinter NAT lässt sich die Adresse mit `LittleSister__Events__CallbackUrl` vorgeben.
 
 ### Kamera-Konfiguration exportieren und importieren
 
-Admins können Kamera-Einstellungen als JSON-Datei sichern und wieder einspielen, z. B. vor einer Neuinstallation oder für einen zweiten Server:
-
-| Was | Wo |
-| --- | --- |
-| eine Kamera exportieren | Kameras → Kamera bearbeiten → **Konfiguration exportieren** |
-| alle Kameras exportieren | Kameras → **Alle Kameras exportieren** |
-| importieren | Kameras → **Datei importieren …** |
-
-Enthalten sind Name, Streams, Benutzername, ONVIF-Adresse, Drehung, Aufnahmemodus, Vor- und Nachlauf, Kontingent, Aufbewahrung, Bewegungserkennung und Erkennungsbereiche; Aufnahmen und Ereignisse nicht. Passwörter nur, wenn beim Export **Passwörter mitexportieren** angehakt ist. Sie stehen dann im **Klartext** in der Datei, die Datei also wie ein Passwort behandeln. Ohne Passwort zeigt der Import, bei welchen Kameras es noch eingetragen werden muss.
-
-Der Import legt immer **neue** Kameras an, bestehende werden nicht verändert. Gibt es den Namen schon, wird „(2)“, „(3)“ … angehängt. Ist eine Kamera in der Datei ungültig, wird keine angelegt und die Meldung nennt die betroffene Kamera.
+Admins sichern Kameras unter **Kameras → Alle Kameras exportieren** (oder einzeln beim Bearbeiten) als JSON und spielen sie über **Datei importieren …** wieder ein. Enthalten sind alle Einstellungen samt Erkennungsbereichen, aber keine Aufnahmen. Passwörter nur mit Haken **Passwörter mitexportieren**, dann im **Klartext** – die Datei also wie ein Passwort behandeln. Der Import legt immer neue Kameras an (bei gleichem Namen mit „(2)“ usw.); ist eine Kamera ungültig, wird keine angelegt.
 
 ### Ablage der Aufnahmen
 
@@ -203,219 +134,59 @@ Der Import legt immer **neue** Kameras an, bestehende werden nicht verändert. G
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.mp4   fertige Segmente (Zeiten in UTC)
 recordings/<kamera-id>/<JJJJMMTT>/<HHMMSS>.jpg   Vorschaubilder des Segments
 recordings/<kamera-id>/.incoming/                 Segment, das gerade geschrieben wird
-recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorlauf (nur bei Aufnahme bei Bewegung)
+recordings/<kamera-id>/.buffer/                   Zwischenspeicher für den Vorlauf
 recordings/.little-sister                         Kennung des Aufnahmeordners, nicht löschen
 ```
 
-Segmente sind fragmentierte MP4-Dateien und lassen sich direkt mit jedem Player öffnen. Der Ringspeicher löscht die Vorschaubilder zusammen mit ihrem Segment. Zur versteckten Datei `.little-sister` siehe den nächsten Abschnitt.
-
-Beim Start liest Little Sister im Hintergrund Segmentdateien ein, die nach diesem Schema in einem Kameraordner liegen, aber in der Datenbank fehlen (z. B. nach einer wiederhergestellten Datenbank). Die Länge ermittelt `ffprobe`; Vorschaubilder entstehen danach, sofern sie eingeschaltet sind. Ordner gelöschter Kameras, `.incoming` und `.buffer` bleiben außen vor. Was älter als die maximale Aufbewahrung ist oder das Kontingent übersteigt, entfernt der Ringspeicher danach wie gewohnt.
-
-Alle Aufnahmen einer Kamera löscht ein Admin unter **Kameras → Kamera bearbeiten → Aufnahmen → Alle Aufnahmen löschen**; zur Bestätigung wird der Kameraname eingetippt. Gelöscht werden Segmente, Vorschaubilder und Bewegungsereignisse, die Kamera selbst bleibt und nimmt weiter auf.
+Segmente sind fragmentierte MP4-Dateien und lassen sich mit jedem Player öffnen. Beim Start liest Little Sister Segmente nach diesem Schema ein, die in der Datenbank fehlen (z. B. nach einer wiederhergestellten Datenbank); danach greift der Ringspeicher wie gewohnt. Alle Aufnahmen einer Kamera löscht ein Admin unter **Kameras → Kamera bearbeiten → Aufnahmen → Alle Aufnahmen löschen** (Bestätigung durch Eintippen des Kameranamens).
 
 ### Aufnahmeordner auf Netzfreigabe oder eigener Platte
 
-> **Wichtig:** Im Aufnahmeordner liegt die versteckte Datei `.little-sister` (wegen des Punkts am Anfang zeigt `ls` sie nur mit `ls -a`). Sie kennzeichnet den Ordner als den eingerichteten Aufnahmeordner. **Nicht löschen.**
+> **Wichtig:** Die versteckte Datei `.little-sister` im Aufnahmeordner (sichtbar mit `ls -a`) kennzeichnet ihn als eingerichteten Aufnahmeordner. **Nicht löschen.**
 
-Wozu: Liegt der Aufnahmeordner auf einer Netzfreigabe (NFS, SMB, virtiofs) oder einer eigenen Platte und ist diese beim Start nicht eingehängt, ist der Ordner nur der leere Einhängepunkt auf der Systemplatte. Ohne Schutz würde Little Sister dorthin aufnehmen, die Systemplatte füllen und wegen scheinbar fehlenden Speicherplatzes (Freispeichergrenze) alle alten Aufnahmen löschen.
+Ist eine Freigabe (NFS, SMB, virtiofs) oder Platte beim Start nicht eingehängt, ist der Ordner nur der leere Einhängepunkt auf der Systemplatte. Ohne die Kennung würde Little Sister dorthin aufnehmen, die Systemplatte füllen und wegen der Freispeichergrenze alte Aufnahmen löschen. Fehlt `.little-sister`, gilt deshalb:
 
-Verhalten, wenn `.little-sister` fehlt:
+- Die Aufnahme pausiert (Kamerastatus „Fehler“: „Aufnahmeordner … nicht erreichbar oder nicht eingehängt“), der Ringspeicher löscht dort nichts.
+- Live-Ansicht und Wiedergabe laufen weiter.
+- Ist die Freigabe wieder da, startet die Aufnahme innerhalb von 30 s von selbst.
 
-| Was | Verhalten |
-| --- | --- |
-| Aufnahme | pausiert; Kamerastatus „Fehler“ mit „Aufnahmeordner … nicht erreichbar oder nicht eingehängt“, Fehlermeldung im Protokoll |
-| Ringspeicher | löscht in diesem Ordner nichts (weder nach Kontingent, Aufbewahrung noch Freispeichergrenze) |
-| Live-Ansicht, Wiedergabe | laufen weiter; Aufnahmen auf der fehlenden Freigabe lassen sich bis zum Einhängen nicht abspielen |
-| Freigabe wieder da | Aufnahme startet innerhalb von 30 Sekunden von selbst, ein Neustart ist nicht nötig |
-
-Wann die Datei entsteht:
-
-- beim Einrichten des Aufnahmeordners und beim Wechsel auf einen anderen Ordner in den Einstellungen;
-- bei Installationen von vor dieser Prüfung automatisch, wenn noch keine Aufnahmen bekannt sind oder eine der 20 ältesten bekannten Aufnahmen im Ordner gefunden wird. **Vor dem ersten Update deshalb prüfen, dass die Freigabe eingehängt ist** (`findmnt <aufnahmeordner>`).
-
-Prüfen und von Hand anlegen (nur wenn die Freigabe sicher eingehängt ist, z. B. nach dem Umzug der Aufnahmen auf eine neue Platte):
+Die Kennung entsteht beim Einrichten oder Wechseln des Aufnahmeordners, bei älteren Installationen automatisch, wenn eine der 20 ältesten bekannten Aufnahmen im Ordner gefunden wird. Von Hand anlegen (nur wenn die Freigabe sicher eingehängt ist):
 
 ```fish
 findmnt /srv/little-sister/recordings
-ls -a /srv/little-sister/recordings
 sudo -u littlesister touch /srv/little-sister/recordings/.little-sister
 ```
 
 | Zeile | Wirkung |
 | --- | --- |
-| `findmnt …` | zeigt, ob und was dort eingehängt ist; keine Ausgabe = nicht eingehängt |
-| `ls -a …` | listet den Ordner samt versteckter Dateien, `.little-sister` sollte dabei sein |
-| `sudo -u littlesister touch …` | legt die Kennung als Dienstbenutzer an; danach nimmt Little Sister innerhalb von 30 Sekunden wieder auf |
-
-Der systemd-Dienst startet erst nach dem Einhängen der Dateisysteme aus `/etc/fstab`. Fehlt eine Freigabe trotzdem, startet er dennoch, damit die Live-Ansicht läuft; die Kennung schützt dann die Aufnahmen.
+| `findmnt …` | zeigt, was dort eingehängt ist; keine Ausgabe = nicht eingehängt |
+| `sudo -u littlesister touch …` | legt die Kennung als Dienstbenutzer an; die Aufnahme startet innerhalb von 30 s |
 
 ### Konfiguration
 
-Alle Einstellungen lassen sich per Umgebungsvariable setzen (doppelter Unterstrich trennt Ebenen), auf dem Ubuntu-Server in `/etc/little-sister/little-sister.env`, danach `sudo systemctl restart little-sister`:
+Einstellungen per Umgebungsvariable (doppelter Unterstrich trennt Ebenen) in `/etc/little-sister/little-sister.env`:
 
 | Variable | Standard | Bedeutung |
 | --- | --- | --- |
-| `LittleSister__DataPath` | `/var/lib/little-sister` (Ubuntu), `/data` (Docker) | Datenbank, Schlüssel, Sicherungen |
-| `LittleSister__DefaultRecordingsPath` | `/srv/little-sister/recordings` (Ubuntu), `/recordings` (Docker) | Vorschlag im Einrichtungsassistenten |
-| `LittleSister__Database__Provider` | `Sqlite` | weitere Provider folgen |
-| `LittleSister__Database__ConnectionString` | SQLite-Datei im Datenordner | eigene Verbindung |
-| `LittleSister__KeysPath` | `<DataPath>/keys` | Schlüssel für Cookies und Kamera-Passwörter, getrennt von der DB ablegbar |
+| `ASPNETCORE_HTTP_PORTS` | `8080` | Port für Oberfläche und API |
+| `LittleSister__DataPath` | `/var/lib/little-sister` | Datenbank, Schlüssel, Sicherungen |
+| `LittleSister__DefaultRecordingsPath` | `/srv/little-sister/recordings` | Vorschlag im Einrichtungsassistenten |
+| `LittleSister__Database__Provider` / `__ConnectionString` | `Sqlite` / Datei im Datenordner | Datenbank |
+| `LittleSister__KeysPath` | `<DataPath>/keys` | Schlüssel für Cookies und Kamera-Passwörter, getrennt ablegbar |
 | `LittleSister__Recording__SegmentSeconds` | `60` | Länge eines Aufnahmesegments |
-| `LittleSister__Recording__FfmpegPath` | `ffmpeg` | Pfad zu ffmpeg (im Image enthalten) |
-| `LittleSister__Live__Go2rtcPath` | `go2rtc` | Pfad zu go2rtc (im Image enthalten) |
+| `LittleSister__Recording__FfmpegPath` | `ffmpeg` | Pfad zu ffmpeg |
+| `LittleSister__Live__Go2rtcPath` | `go2rtc` | Pfad zu go2rtc |
 | `LittleSister__Live__ApiPort` | `1984` | go2rtc-API, nur auf 127.0.0.1 |
 | `LittleSister__Live__WebRtcPort` | `8555` | WebRTC-Port (TCP und UDP) |
-| `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse, z. B. `192.168.1.10:8555` bei Docker-Bridge oder NAT |
-| `LittleSister__Events__CallbackUrl` | automatisch | Adresse, unter der Kameras ohne PullPoint Little Sister erreichen, z. B. `http://192.168.1.10:8080` |
-| `ASPNETCORE_HTTP_PORTS` | `8080` | Port im Container |
-
-## Alternativ: Docker (z. B. Unraid)
-
-Auf einem Ubuntu-Server ist die Installation oben der vorgesehene Weg. Für Docker-Hosts wie Unraid gibt es ein fertiges Image.
-
-### Fertiges Image von GitHub (ghcr.io)
-
-Sobald ein Versions-Tag wie `v0.1.1` oder `v0.1.2-test` nach GitHub gepusht wird, baut die CI das Docker-Image und legt es in der **GitHub Container Registry** (ghcr.io) ab, einem Speicher für Docker-Images in deinem GitHub-Konto. Vorher wird gebaut und getestet. Normale Commits und Pull Requests lösen die CI nicht aus.
-
-```
-ghcr.io/malte007/little_sister:0.1.1       genau diese Version (Tag v0.1.1)
-ghcr.io/malte007/little_sister:0.1.2-test  Testversion (Tag mit Zusatz nach "-")
-ghcr.io/malte007/little_sister:latest      die neueste fertige Version (Tags ohne Zusatz)
-```
-
-Eine Version veröffentlichen geht in Rider über **Git → New Tag…** (Name z. B. `v0.1.1`) und danach **Git → Push…** mit Haken bei **Push Tags**. Im Terminal (fish):
-
-```fish
-git tag v0.1.1
-git push Github v0.1.1
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `git tag v0.1.1` | markiert den aktuellen Commit als Version 0.1.1 |
-| `git push Github v0.1.1` | schickt den Tag zu GitHub (`Github` ist der Name deines Remotes); die CI testet, legt das GitHub-Release mit dem Paket an und baut das Image |
-
-Zu sehen ist es in deinem GitHub-Profil unter **Packages**. Weil das Repository privat ist, ist auch das Paket privat. Ein Server braucht daher eine Anmeldung mit einem Token, bevor er es herunterladen darf.
-
-### Auf Unraid einrichten
-
-**1. Token anlegen.** Auf GitHub: **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**. Name z. B. `unraid`, Ablaufdatum nach Wahl, nur den Haken **`read:packages`** setzen. Den Token kopieren, er wird nur einmal angezeigt. (Fein abgestufte Tokens unterstützen die Container Registry nach meinem Stand nicht.)
-
-**2. Unraid bei ghcr.io anmelden.** Im Unraid-Webinterface oben rechts das Terminal **>_** öffnen. Dort läuft bash, nicht fish:
-
-```bash
-docker login ghcr.io -u malte007
-mkdir -p /boot/config/docker-auth && cp /root/.docker/config.json /boot/config/docker-auth/
-echo 'mkdir -p /root/.docker && cp /boot/config/docker-auth/config.json /root/.docker/' >> /boot/config/go
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `docker login ghcr.io -u malte007` | meldet Docker bei ghcr.io an; als Passwort den Token einfügen |
-| `mkdir … && cp …` | sichert die Anmeldung auf dem USB-Stick, denn `/root` liegt auf Unraid im Arbeitsspeicher und ist nach einem Neustart leer |
-| `echo … >> /boot/config/go` | stellt die Anmeldung bei jedem Start von Unraid wieder her (`go` wird beim Hochfahren ausgeführt) |
-
-Die Anmeldung wird nur zum Herunterladen und für „Nach Updates suchen“ gebraucht. Ein laufender Container läuft auch ohne sie weiter.
-
-**3. Container anlegen.** **Docker → Container hinzufügen**, Vorlage leer lassen:
-
-| Feld | Wert | Hinweis |
-| --- | --- | --- |
-| Name | `little-sister` | |
-| Repository | `ghcr.io/malte007/little_sister:latest` | neueste fertige Version; für eine Testversion z. B. `…:0.1.2-test` |
-| Netzwerktyp | `Host` | nötig für die ONVIF-Kamerasuche (Multicast) |
-| Erweiterte Ansicht → Zusätzliche Parameter | `--user 99:100` | läuft als Unraid-Standardbenutzer `nobody:users`, sonst fehlen Schreibrechte auf den Shares |
-| Pfad `/data` | `/mnt/user/appdata/little-sister` | Datenbank, Schlüssel, Sicherungen |
-| Pfad `/recordings` | z. B. `/mnt/user/aufnahmen/little-sister` | Aufnahmen; Share am besten ohne Cache, sonst schiebt der Mover die Dateien ständig hin und her |
-| Variable `TZ` | `Europe/Berlin` | |
-| WebUI | `http://[IP]:[PORT:8080]/` | |
-
-Mit Host-Netzwerk belegt Little Sister die Ports **8080** (Oberfläche), **8555 TCP/UDP** (WebRTC) und **1984** (go2rtc, nur intern). Läuft auf Unraid schon Frigate oder ein anderes go2rtc, die Ports per Variable umlegen: `ASPNETCORE_HTTP_PORTS`, `LittleSister__Live__WebRtcPort`, `LittleSister__Live__ApiPort`.
-
-Danach `http://<unraid-ip>:8080` öffnen und die Einrichtung durchklicken; als Aufnahmeordner `/recordings` lassen.
-
-**4. Aktualisieren.** Nach dem Push eines neuen Versions-Tags ist das Image nach einigen Minuten fertig (Reiter **Actions** auf GitHub). Dann auf Unraid unter **Docker → Nach Updates suchen** und beim Container **Update anwenden**. Datenbank-Migrationen laufen beim Start automatisch, vorher wird die Datenbank nach `/data/backups` gesichert.
-
-### Selbst bauen mit docker compose
-
-```bash
-docker compose up -d --build
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `docker compose up -d --build` | baut das Image aus dem Quellcode und startet Little Sister im Hintergrund |
-
-Danach `http://<server>:8080` öffnen; der Einrichtungsassistent startet automatisch. Datenbank und Schlüssel liegen in `./data`, Aufnahmen in `./recordings`; Einstellungen werden in `docker-compose.yml` unter `environment` gesetzt.
-
-Die Compose-Datei nutzt das Host-Netzwerk, weil die ONVIF-Kamerasuche per UDP-Multicast sonst nicht aus dem Container herauskommt. Ohne Suche (Kamera per IP-Adresse oder RTSP-Adresse hinzufügen) reicht auch das normale Bridge-Netzwerk.
+| `LittleSister__Live__WebRtcCandidates__0` | leer | zusätzliche WebRTC-Adresse bei NAT, z. B. `192.168.1.10:8555` |
+| `LittleSister__Events__CallbackUrl` | automatisch | Adresse für ONVIF-Meldungen der Kameras, z. B. `http://192.168.1.10:8080` |
 
 ## Entwickeln
 
-Voraussetzungen: .NET 10 SDK, Node.js 24 (mindestens 22.12), ffmpeg und go2rtc (für Aufnahme, Live-Ansicht und Tests).
+Voraussetzungen: .NET 10 SDK, Node.js 24 (mindestens 22.12, npm 11), ffmpeg und [go2rtc 1.9.14](https://github.com/AlexxIT/go2rtc/releases/tag/v1.9.14) im Suchpfad (z. B. `/usr/local/bin/go2rtc`). Unter fish lässt sich Node über [nvm](https://github.com/nvm-sh/nvm) per `bash -c 'source ~/.nvm/nvm.sh && nvm install 24'` installieren und mit `fish_add_path` einbinden.
 
-```bash
-dotnet run --project src/LittleSister.Api
-cd web && npm install && npm run dev
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `dotnet run --project src/LittleSister.Api` | startet die API auf Port 5080, auch aus dem LAN erreichbar, damit Kameras Ereignisse schicken können (Daten in `src/LittleSister.Api/data`) |
-| `cd web && npm install && npm run dev` | installiert die Frontend-Pakete und startet die Oberfläche auf http://localhost:5173; `/api` wird an die API weitergeleitet |
-
-### Einrichtung in Rider (Linux, fish)
-
-Voraussetzungen: aktuelles Rider, .NET 10 SDK, ffmpeg, go2rtc und Node.js 24. Node am einfachsten über [nvm](https://github.com/nvm-sh/nvm). nvm ist ein bash-Skript, deshalb wird es unter fish über `bash -c` aufgerufen:
-
-```fish
-sudo apt install dotnet-sdk-10.0 ffmpeg
-bash -c 'source ~/.nvm/nvm.sh && nvm install 24'
-fish_add_path ~/.nvm/versions/node/(bash -c 'source ~/.nvm/nvm.sh && nvm version 24')/bin
-node --version; npm --version
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `sudo apt install …` | installiert .NET 10 SDK und ffmpeg (für Aufnahme und Tests) |
-| `bash -c '… nvm install 24'` | lädt nvm in einer bash und installiert Node.js 24 |
-| `fish_add_path …` | trägt den Node-24-Ordner dauerhaft in den fish-Suchpfad ein, damit `node` und `npm` überall gefunden werden |
-| `node --version; npm --version` | prüft, ob Node 24 und npm 11 aktiv sind |
-
-go2rtc für die Live-Ansicht (eine einzelne Programmdatei, nach `/usr/local/bin`, damit auch Rider sie findet):
-
-```fish
-curl -L -o /tmp/go2rtc https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_amd64
-sudo install -m 755 /tmp/go2rtc /usr/local/bin/go2rtc
-go2rtc -version
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `curl -L -o /tmp/go2rtc …` | lädt go2rtc 1.9.14 für 64-Bit-Linux herunter (auf ARM `go2rtc_linux_arm64`) |
-| `sudo install -m 755 …` | kopiert es ausführbar nach `/usr/local/bin` |
-| `go2rtc -version` | prüft, ob es gefunden wird |
-
-Projekt holen und öffnen:
-
-```fish
-git clone https://github.com/malte007/little_sister.git
-cd little_sister
-git switch main
-```
-
-| Zeile | Wirkung |
-| --- | --- |
-| `git clone …` | lädt das Repository herunter |
-| `cd little_sister` | wechselt in den Projektordner |
-| `git switch main` | wechselt auf den gewünschten Branch (für einen offenen PR dessen Branch angeben) |
-
-In Rider:
-
-1. **File → Open** und `LittleSister.slnx` öffnen.
-2. Oben rechts die Startkonfiguration **LittleSister.Api: http** wählen und starten. Die API läuft auf http://localhost:5080, Datenbank und Schlüssel liegen in `src/LittleSister.Api/data`. go2rtc startet automatisch mit (Ports 1984 lokal und 8555).
-3. Tests: Fenster **Unit Tests** öffnen und **Run All** ausführen (Kamera- und Live-Tests brauchen ffmpeg und go2rtc).
-4. Oberfläche im Rider-Terminal (fish) starten:
+1. In Rider `LittleSister.slnx` öffnen und die Startkonfiguration **LittleSister.Api: http** starten. Die API läuft auf http://localhost:5080 (auch aus dem LAN, für ONVIF-Meldungen), Daten liegen in `src/LittleSister.Api/data`, go2rtc startet mit.
+2. Oberfläche im Terminal starten:
 
 ```fish
 cd web
@@ -426,49 +197,42 @@ npm run dev
 | Zeile | Wirkung |
 | --- | --- |
 | `cd web` | wechselt in den Frontend-Ordner |
-| `npm install` | installiert die Frontend-Pakete; beim ersten Mal und nach jedem `git pull`, der `package.json` ändert, sonst meldet Vite „Failed to resolve import“ |
-| `npm run dev` | startet die Oberfläche auf http://localhost:5173 und leitet `/api` an die laufende API weiter |
+| `npm install` | installiert die Frontend-Pakete; nach jedem `git pull`, der `package.json` ändert, wiederholen |
+| `npm run dev` | startet die Oberfläche auf http://localhost:5173 und leitet `/api` an die API weiter |
 
-5. http://localhost:5173 im Browser öffnen und die Einrichtung durchlaufen. Als Aufnahmeordner einen beschreibbaren absoluten Pfad angeben, z. B. `/home/<du>/little-sister/recordings`. Admins können ihn später unter **Kameras → Speicher** ändern.
+3. http://localhost:5173 öffnen und die Einrichtung durchlaufen (Aufnahmeordner z. B. `/home/<du>/little-sister/recordings`). Von vorn beginnen: API stoppen und `src/LittleSister.Api/data` löschen.
 
-Von vorn beginnen: API stoppen und den Ordner `src/LittleSister.Api/data` löschen.
+Tests laufen in Rider über **Unit Tests → Run All** (Kamera- und Live-Tests brauchen ffmpeg und go2rtc). Vor jedem Pull Request alles wie die CI bauen und testen:
 
-### Bauen und Testen wie die CI
-
-Alles bauen und testen, genau wie die CI:
-
-```bash
+```fish
 ./scripts/build.sh
-./scripts/docker-build.sh
 ```
 
 | Zeile | Wirkung |
 | --- | --- |
 | `./scripts/build.sh` | prüft und baut die Oberfläche, baut die Solution und führt alle Tests aus |
-| `./scripts/docker-build.sh` | baut das Docker-Image `little-sister:dev` (mit `PUSH=true` und `IMAGE=…` auch veröffentlichen) |
 
-Neue Datenbank-Migration anlegen:
+Neue Datenbank-Migration: `dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/LittleSister.Infrastructure -o Data/Migrations`; sie wird beim nächsten Start angewendet.
 
-```bash
-dotnet ef migrations add <Name> -p src/LittleSister.Infrastructure -s src/LittleSister.Infrastructure -o Data/Migrations
+## CI und Version veröffentlichen
+
+`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions; die Logik steckt in `scripts/`. Um das kostenlose Actions-Kontingent zu schonen, läuft sie **nur bei einem Versions-Tag `v*`** (oder von Hand unter Actions → CI → „Run workflow“), nicht bei Commits und Pull Requests. Sie baut, testet und legt das GitHub-Release mit `little-sister.tar.gz` an. Nebenbei baut sie weiterhin ein Docker-Image (ghcr.io, für die zurückgestellte Docker-Variante, z. B. Unraid; Dockerfile und `docker-compose.yml` bleiben im Repository).
+
+### Version veröffentlichen
+
+In Rider **Git → New Tag…** (z. B. `v0.2.0`), danach **Git → Push…** mit Haken bei **Push Tags**. Oder im Terminal:
+
+```fish
+git tag v0.2.0
+git push Github v0.2.0
 ```
 
 | Zeile | Wirkung |
 | --- | --- |
-| `dotnet ef migrations add …` | erzeugt eine Migration; sie wird beim nächsten Start automatisch angewendet (vorher wird die Datenbank nach `data/backups` gesichert) |
+| `git tag v0.2.0` | markiert den aktuellen Commit als Version 0.2.0 |
+| `git push Github v0.2.0` | schickt den Tag zu GitHub (Remote `Github`); die CI baut, testet und legt das Release an |
 
-## CI (GitHub und Gitea)
-
-`.github/workflows/ci.yml` läuft auf GitHub Actions und Gitea Actions (`act_runner`). Die eigentliche Logik steckt in `scripts/`, der Workflow ruft sie nur auf. Sie läuft nur, wenn ein Versions-Tag `v*` gepusht wird: bauen, testen und danach das GitHub-Release mit `little-sister.tar.gz` (`scripts/package.sh`) und das Docker-Image veröffentlichen (siehe „Fertiges Image von GitHub“). Commits und Pull Requests lösen sie nicht aus, damit das kostenlose Actions-Kontingent geschont wird; vor jedem Pull Request deshalb lokal `./scripts/build.sh` laufen lassen (siehe „Bauen und Testen wie die CI“). Von Hand startest du Bauen und Testen unter GitHub → Actions → CI → „Run workflow“.
-
-Für Gitea unter *Repository → Einstellungen → Actions*:
-
-| Name | Art | Beispiel |
-| --- | --- | --- |
-| `REGISTRY` | Variable | `gitea.local:3000` |
-| `IMAGE_NAME` | Variable | `malte/little-sister` |
-| `RUNNER_LABEL` | Variable (optional) | `ubuntu-latest` |
-| `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` | Secrets | Gitea-Benutzer und Token mit Paket-Schreibrecht |
+Tags mit Zusatz wie `v0.2.1-test` werden als Vorabversion veröffentlicht und nicht zu „latest“.
 
 ## Lizenz
 
@@ -478,6 +242,6 @@ Little Sister ist freie Software unter der **GNU Affero General Public License, 
 
 - Jeder darf Little Sister nutzen, ändern und weitergeben, auch gewerblich. Wer es weitergibt oder eine geänderte Fassung über das Netzwerk für andere betreibt, muss den vollständigen Quellcode unter derselben Lizenz zugänglich machen.
 - **Doppellizenz:** Wer Little Sister ohne die Pflichten der AGPL einsetzen möchte (zum Beispiel in einem geschlossenen Produkt), kann beim Urheber eine kommerzielle Lizenz anfragen.
-- Mitgelieferte Fremdsoftware und ihre Lizenzen stehen in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES); die Datei liegt auch im Docker-Image unter `/app/THIRD-PARTY-NOTICES`.
+- Mitgelieferte Fremdsoftware und ihre Lizenzen stehen in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES).
 - Neue Abhängigkeiten nur mit freizügiger Lizenz (MIT, BSD, Apache 2.0, PostgreSQL-Lizenz), damit die Doppellizenz möglich bleibt. Keine GPL-Bibliotheken im eigenen Prozess; ffmpeg wird nur als eigener Prozess gestartet.
 - Beiträge Dritter nur mit Contributor License Agreement, siehe [CONTRIBUTING.md](CONTRIBUTING.md).
