@@ -23,7 +23,7 @@ Technik: ASP.NET Core (.NET 10) mit EF Core und SQLite, SvelteKit + TypeScript a
 
 ## Installation
 
-Es gibt zwei Wege. Beide richten nach dem Start einen Einrichtungsassistenten unter `http://<server>:8080` ein (Admin-Konto, Aufnahmeordner, Sprache, Zeitzone).
+Es gibt zwei Wege. Bei beiden öffnet man danach `http://<server>:8080` und richtet im Assistenten Admin-Konto, Aufnahmeordner, Sprache und Zeitzone ein.
 
 | Weg | Geeignet für |
 | --- | --- |
